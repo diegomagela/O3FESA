@@ -1,0 +1,25 @@
+\documentclass{standalone}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepgfplotslibrary{colorbrewer}
+
+\begin{document}
+\begin{tikzpicture}
+    \begin{axis}[
+            colormap/PuOr,
+            hide axis,
+            width=7cm,
+            height=7cm,
+            title=O3FESA,
+        ]
+        \addplot3 [
+            mesh,
+            % scatter,
+            draw=black,
+            samples=20,
+            domain=-1:1,
+        ] {-(1/4)*(1-x)*(1-y)*(1+x+y)};
+    \end{axis}
+\end{tikzpicture}
+
+\end{document}
