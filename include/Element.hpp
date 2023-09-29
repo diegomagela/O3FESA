@@ -41,19 +41,22 @@ public:
     Element(Element &&) = default;
     Element &operator=(Element &&) = default;
 
-    void print();
 
-    // Setter
+    // Selectors
+    void print() const;
+    inline bool has_load() const { return dload_.has_load(); };
+
+
+    // Modifiers
     inline void set_dload(DLoad dload) { dload_ = dload; };
     inline void set_section(SectionPtr section) { section_ = section; };
-
-    bool has_load() { return dload_.has_load(); };
 
     // Pure virtual functions to be implemented
 
     // stiffness_matrix() = 0;
     // mass_matrix() = 0;
 
+    // Friend
     friend std::ostream &operator<<(std::ostream &os, const Element &element);
 
 private:

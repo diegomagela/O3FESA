@@ -4,13 +4,6 @@
 #include <iostream>
 #include <sstream>
 
-inline void remove_space(std::string &string)
-{
-    string.erase(
-        remove_if(string.begin(), string.end(), isspace),
-        string.end());
-}
-
 std::vector<std::string> split_string(const std::string input, const char sep)
 {
     std::stringstream ss(input);

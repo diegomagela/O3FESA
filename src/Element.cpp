@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-void Element::print()
+void Element::print() const
 {
     std::cout << *this << std::endl;
 }

@@ -19,7 +19,8 @@ public:
     CLoad(CLoad &&) = default;
     CLoad &operator=(CLoad &&) = default;
 
-    bool has_cload()
+    // Selectors
+    inline bool has_cload() const
     {
         if(loading_dofs_.empty())
             return false;

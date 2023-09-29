@@ -26,19 +26,17 @@ public:
     Node(Node &&) = default;
     Node &operator=(Node &&) = default;
 
-    // Return the node tag
-    std::size_t node_tag() { return tag_; };
-
-    // Print out informations about the node
+    // Selectors
+    inline std::size_t node_tag() const { return tag_; };
+    inline bool has_boundary() const { return boundary_.has_boundary(); }
+    inline bool has_cload() const { return cload_.has_cload(); }
     void print() const;
 
-    // Setter methods
+    // Modifiers
     inline void set_boundary(Boundary boundary) { boundary_ = boundary; };
     inline void set_cload(CLoad cload) { cload_ = cload; }
 
-    inline bool has_boundary() { return boundary_.has_boundary(); }
-    inline bool has_cload() { return cload_.has_cload(); }
-
+    // Friends
     friend std::ostream &operator<<(std::ostream &os, const Node &node);
 
 private:

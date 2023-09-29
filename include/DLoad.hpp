@@ -19,7 +19,8 @@ public:
     DLoad(DLoad &&) = default;
     DLoad &operator=(DLoad &&) = default;
 
-    bool has_load() { return loading_; };
+    // Selectors
+    inline bool has_load() const { return loading_; };
 
 private:
     std::size_t element_tag_{};

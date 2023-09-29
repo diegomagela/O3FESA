@@ -19,7 +19,8 @@ public:
     Boundary(Boundary &&) = default;
     Boundary &operator=(Boundary &&) = default;
 
-    bool has_boundary()
+    // Selectors
+    inline bool has_boundary() const
     {
         if(imposed_dofs_.empty())
             return false;
