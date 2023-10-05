@@ -58,7 +58,6 @@ public:
 private:
     // Smart pointers for defining containers of derived classes and shared
     // objects
-
     typedef std::shared_ptr<Boundary> BoundaryPtr;
     typedef std::shared_ptr<CLoad> CLoadPtr;
     typedef std::shared_ptr<Node> NodePtr;
@@ -87,10 +86,10 @@ private:
     // NODE TAG, CLOAD
     std::map<std::size_t, CLoadPtr> cload_map{};
 
-    // NODE TAG, NODE CLASS
+    // NODE TAG, NODE
     std::map<std::size_t, NodePtr> node_map{};
 
-    // MATERIAL NAME, MATERIAL CLASS
+    // MATERIAL NAME, MATERIAL
     std::map<std::string, MaterialPtr> material_map{};
 
     // ELEMENT SET, SECTION
@@ -99,7 +98,7 @@ private:
     // ELEMENT TAG, DLOAD
     std::map<std::size_t, DLoadPtr> dload_map{};
 
-    // ELEMENT TAG, ELEMENT CLASSES
+    // ELEMENT TAG, ELEMENT
     std::map<std::size_t, ElementPtr> element_map{};
 
     void read_boundary();
