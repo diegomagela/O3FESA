@@ -6,6 +6,8 @@
 
 // Auxiliary IO functions to define the model from input file
 
+bool find_keyword(const std::string &line, const std::string &keyword);
+
 // Return element type
 std::string get_element_type(const std::string &input);
 

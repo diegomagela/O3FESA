@@ -90,7 +90,7 @@ for i in range(nNodes):
 # *ELEMENT
 # TAG NODE_1 NODE_2 ... NODE_N
 
-file.write("*ELEMENT, TYPE=S9, ELSET=EALL" + '\n')
+file.write("*ELEMENT, TYPE=Q9, ELSET=EALL" + '\n')
 
 firstElementTag = gmsh.model.mesh.getElements(2, -1)[1][0][0]
 elementTags = gmsh.model.mesh.getElements(2, -1)[1][0] - firstElementTag + 1
@@ -191,7 +191,21 @@ file.write("*ELASTIC, TYPE=LAMINA" + '\n')
 line = [E_1, E_2, NU_12, G_12, G_13, G_23]
 file.write(", ".join(map(str, line)))
 file.write("\n")
+file.write("*DENSITY" + '\n')
+file.write(str(density) + '\n')
 
+# *MATERIAL, NAME=ISO
+# *ELASTIC, TYPE=ISOTROPIC
+# E, NU
+E = 1E9
+NU = 0.3
+density = 1000
+
+file.write("*MATERIAL, NAME=ISO" + '\n')
+file.write("*ELASTIC, TYPE=ISOTROPIC" + '\n')
+line = [E, NU]
+file.write(", ".join(map(str, line)))
+file.write("\n")
 file.write("*DENSITY" + '\n')
 file.write(str(density) + '\n')
 

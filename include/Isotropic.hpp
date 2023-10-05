@@ -15,6 +15,9 @@ public:
                                                density){};
     ~Isotropic(){};
 
+    // Selectors
+    std::vector<double> elastic_coefficients() const override;
+
 private:
     static constexpr inline MaterialType type_ = MaterialType::Isotropic;
     std::vector<double> elastic_properties_{};

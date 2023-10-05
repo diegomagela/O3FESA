@@ -29,6 +29,10 @@ public:
     Material(Material &&) = default;
     Material &operator=(Material &&) = default;
 
+    // Selectors
+    virtual std::vector<double> elastic_coefficients() const = 0;
+    inline double density() const { return density_; };
+
 private:
     std::string name_{};
     MaterialType type_{};

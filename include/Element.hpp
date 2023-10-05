@@ -9,9 +9,6 @@
 #include "Node.hpp"
 #include "Section.hpp"
 
-typedef std::shared_ptr<Node> NodePtr;
-typedef std::shared_ptr<Section> SectionPtr;
-
 /*
     TODO
 
@@ -23,16 +20,19 @@ typedef std::shared_ptr<Section> SectionPtr;
 // Base element class for all shell other elements
 class Element
 {
+private:
+    typedef std::shared_ptr<Node> NodePtr;
+    typedef std::shared_ptr<Section> SectionPtr;
+    typedef std::shared_ptr<DLoad> DLoadPtr;
+
 public:
     explicit Element(const std::string type,
                      const std::size_t tag,
                      const std::size_t n_nodes,
-                     const std::size_t dof_per_node,
-                     const std::vector<NodePtr> nodes) : type_(type),
-                                                         tag_(tag),
-                                                         n_nodes_(n_nodes),
-                                                         dof_per_node_(dof_per_node),
-                                                         nodes_(nodes){};
+                     const std::size_t dof_per_node) : type_(type),
+                                                       tag_(tag),
+                                                       n_nodes_(n_nodes),
+                                                       dof_per_node_(dof_per_node){};
 
     // The rule of five
     Element() = default;
@@ -41,15 +41,14 @@ public:
     Element(Element &&) = default;
     Element &operator=(Element &&) = default;
 
-
     // Selectors
+    bool has_load() const;
     void print() const;
-    inline bool has_load() const { return dload_.has_load(); };
-
 
     // Modifiers
-    inline void set_dload(DLoad dload) { dload_ = dload; };
-    inline void set_section(SectionPtr section) { section_ = section; };
+    inline void set_nodes(std::vector<NodePtr> nodes) { nodes_ = nodes; }
+    inline void set_dload(DLoadPtr dload) { dload_ = dload; }
+    inline void set_section(SectionPtr section) { section_ = section; }
 
     // Pure virtual functions to be implemented
 
@@ -65,8 +64,8 @@ private:
     std::size_t n_nodes_{};        // Number of nodes
     std::size_t dof_per_node_{};   // Number of degree of freedom per node
     std::vector<NodePtr> nodes_{}; // List of element's nodes
-    DLoad dload_{};                // Area distributed loading
-    SectionPtr section_{};
+    DLoadPtr dload_;               // Area distributed loading
+    SectionPtr section_;
 };
 
 #endif // ELEMENT_H

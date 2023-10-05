@@ -1,6 +1,13 @@
 #include "FEModelIO.hpp"
 #include "IO.hpp"
 
+#include <sstream>
+
+bool find_keyword(const std::string &line, const std::string &keyword)
+{
+    return std::string::npos != line.find(keyword);
+}
+
 std::string get_element_set(const std::string &input)
 {
     std::vector<std::string> splitted_string = split_string(input, ',');

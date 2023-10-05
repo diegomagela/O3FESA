@@ -6,10 +6,16 @@
 
 #include <cstddef>
 #include <iostream>
+#include <memory>
 
-// Node class owns a node tag and its 3D coordinates
+// Node class owns a tag, its 3D coordinates, boundary condition and
+// concentrated loading
 class Node
 {
+private:
+    typedef std::shared_ptr<Boundary> BoundaryPtr;
+    typedef std::shared_ptr<CLoad> CLoadPtr;
+
 public:
     explicit Node(const std::size_t tag,
                   const double x,
@@ -28,13 +34,13 @@ public:
 
     // Selectors
     inline std::size_t node_tag() const { return tag_; };
-    inline bool has_boundary() const { return boundary_.has_boundary(); }
-    inline bool has_cload() const { return cload_.has_cload(); }
+    bool has_boundary() const;
+    bool has_cload() const;
     void print() const;
 
     // Modifiers
-    inline void set_boundary(Boundary boundary) { boundary_ = boundary; };
-    inline void set_cload(CLoad cload) { cload_ = cload; }
+    inline void set_boundary(BoundaryPtr boundary) { boundary_ = boundary; };
+    inline void set_cload(CLoadPtr cload) { cload_ = cload; }
 
     // Friends
     friend std::ostream &operator<<(std::ostream &os, const Node &node);
@@ -44,8 +50,8 @@ private:
     double x_{};
     double y_{};
     double z_{};
-    Boundary boundary_;
-    CLoad cload_;
+    BoundaryPtr boundary_;
+    CLoadPtr cload_;
 };
 
 #endif // NODE_H

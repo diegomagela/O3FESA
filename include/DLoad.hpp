@@ -7,9 +7,7 @@ class DLoad
 {
 public:
     explicit DLoad(std::size_t element_tag,
-                   bool loading,
                    double value) : element_tag_(element_tag),
-                                   loading_(loading),
                                    value_(value){};
 
     // The rule of five
@@ -19,12 +17,8 @@ public:
     DLoad(DLoad &&) = default;
     DLoad &operator=(DLoad &&) = default;
 
-    // Selectors
-    inline bool has_load() const { return loading_; };
-
 private:
     std::size_t element_tag_{};
-    bool loading_{};
     double value_{};
 };
 

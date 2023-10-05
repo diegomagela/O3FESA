@@ -19,16 +19,6 @@ public:
     CLoad(CLoad &&) = default;
     CLoad &operator=(CLoad &&) = default;
 
-    // Selectors
-    inline bool has_cload() const
-    {
-        if(loading_dofs_.empty())
-            return false;
-
-        else
-            return true;
-    }
-
 private:
     std::size_t node_tag_{};
     std::vector<bool> loading_dofs_{};

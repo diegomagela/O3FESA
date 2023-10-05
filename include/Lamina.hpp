@@ -15,6 +15,9 @@ public:
                                             density){};
     ~Lamina(){};
 
+    // Selectors
+    std::vector<double> elastic_coefficients() const override;
+
 private:
     inline static constexpr MaterialType type_ = MaterialType::Lamina;
     std::vector<double> elastic_properties_{};

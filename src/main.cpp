@@ -6,13 +6,9 @@
 int main()
 {
     FEModel model("mesh.inp");
-
+    model.read_input();
     model.print_nodes();
-    // model.print_elements();
-    // model.print_element_sets();
-    // model.print_boundary();
-    // model.print_cload();
-    // model.print_dload();
+    model.print_elements();
 
     return EXIT_SUCCESS;
 }

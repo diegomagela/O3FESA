@@ -1,9 +1,11 @@
 #ifndef FE_MODEL_H
 #define FE_MODEL_H
 
+#include <string>
+#include <fstream>
 #include <memory>
 #include <map>
-#include <unordered_map>
+#include <map>
 
 #include "Element.hpp"
 #include "Material.hpp"
@@ -28,7 +30,17 @@
 class FEModel
 {
 public:
-    FEModel(const std::string filename);
+    FEModel(const std::string filename) : filename_(filename)
+    {
+        std::fstream input(filename_);
+        std::string line;
+
+        if (!input.is_open())
+        {
+            std::cerr << "Input file not found!" << std::endl;
+            abort();
+        }
+    };
 
     // The rule of five
     FEModel() = delete;
@@ -37,24 +49,26 @@ public:
     FEModel(FEModel &&) = default;
     FEModel &operator=(FEModel &&) = default;
 
+    // Read mesh
+    void read_input();
+
     void print_nodes();
     void print_elements();
-    void print_element_sets();
-    void print_boundary();
-    void print_cload();
-    void print_dload();
 
 private:
-    /*
-        Smart pointers for defining containers of derived classes and shared
-        objects
-    */
+    // Smart pointers for defining containers of derived classes and shared
+    // objects
 
-    typedef std::shared_ptr<Node> NodePtr;
-    typedef std::unique_ptr<Element> ElementPtr;
     typedef std::shared_ptr<Boundary> BoundaryPtr;
+    typedef std::shared_ptr<CLoad> CLoadPtr;
+    typedef std::shared_ptr<Node> NodePtr;
     typedef std::shared_ptr<Material> MaterialPtr;
     typedef std::shared_ptr<Section> SectionPtr;
+    typedef std::shared_ptr<DLoad> DLoadPtr;
+    typedef std::shared_ptr<Element> ElementPtr;
+
+private:
+    const std::string filename_{};
 
     /*
         TO TEST AND STUDY
@@ -63,49 +77,38 @@ private:
            this data for each specific class after reading it or read it and
            defined all classes at once (currently)?
 
-        2) Use vector, map or unordered map?
+        2) Use vector, map or unordered map? Need some benchmarks, but unordered
+           map should be the best option here.
     */
+
+    // NODE TAG, BOUNDARY
+    std::map<std::size_t, BoundaryPtr> boundary_map{};
+
+    // NODE TAG, CLOAD
+    std::map<std::size_t, CLoadPtr> cload_map{};
 
     // NODE TAG, NODE CLASS
-    std::map<std::size_t, NodePtr> node_ptr_map{};
+    std::map<std::size_t, NodePtr> node_map{};
 
-    // ELEMENT TAG, ELEMENT CLASSES
-    std::map<std::size_t, ElementPtr> element_map{};
-
-    /*
-        Store then a list of element elements and access them through a map
-        or store them as pointers (shared_ptr)?
-    */
-
-    // ELEMENT SET TAG, LIST OF ELEMENTS
-    std::map<std::string, std::vector<std::size_t>> element_sets{};
-
-    /*
-        Set section and material in each ELEMENT object or
-        get them from map when necessary?
-    */
-
-    // MATERIAL NAME, MATERIAL
+    // MATERIAL NAME, MATERIAL CLASS
     std::map<std::string, MaterialPtr> material_map{};
 
     // ELEMENT SET, SECTION
     std::map<std::string, SectionPtr> section_map{};
 
-private:
-    void add_node(const std::string &input);
+    // ELEMENT TAG, DLOAD
+    std::map<std::size_t, DLoadPtr> dload_map{};
 
-    void add_element(const std::string &input,
-                     const std::string &element_type,
-                     std::vector<std::size_t> &element_set);
+    // ELEMENT TAG, ELEMENT CLASSES
+    std::map<std::size_t, ElementPtr> element_map{};
 
-    void add_boundary(const std::string &input);
-
-    void add_cload(const std::string &input);
-
-    void add_dload(const std::string &input);
-
-    void set_section_to_element();
-
+    void read_boundary();
+    void read_cload();
+    void read_nodes();
+    void read_materials();
+    void read_sections();
+    void read_dload();
+    void read_elements();
 };
 
 #endif // FE_MODEL_H

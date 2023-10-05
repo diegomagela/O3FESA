@@ -20,9 +20,12 @@ configure_file(${CMAKE_SOURCE_DIR}/mesh/mesh.inp.in mesh.inp)
 set(SOURCES
     src/Element.cpp
     src/IO.cpp
+    src/Isotropic.cpp
+    src/Lamina.cpp
     src/FEModelIO.cpp
-    src/S4.cpp
-    src/S9.cpp
+    src/Section.cpp
+    src/Q4.cpp
+    src/Q9.cpp
     src/FEModel.cpp
     src/Node.cpp
     src/main.cpp
