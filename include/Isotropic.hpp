@@ -12,7 +12,8 @@ public:
               const double density) : Material(name,
                                                type_,
                                                elastic_properties,
-                                               density){};
+                                               density),
+                                      elastic_properties_(elastic_properties){};
     ~Isotropic(){};
 
     // Selectors

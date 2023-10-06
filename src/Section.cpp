@@ -1,8 +1,10 @@
 #include "Section.hpp"
-#include "Material.hpp"
 
+#include <iostream>
 #include <cmath>
 #include <numeric>
+
+// Public functions
 
 inline double Section::total_thickness() const
 {
@@ -21,6 +23,8 @@ std::vector<double> Section::layer_position() const
     return position;
 }
 
+// Private functions
+
 std::vector<double> Section::transformed_reduced_stiffness(double orientation,
                                                            std::vector<double> elastic_coefficients) const
 {
@@ -36,7 +40,7 @@ std::vector<double> Section::transformed_reduced_stiffness(double orientation,
     double Q_55 = elastic_coefficients.at(5);
 
     // c: cos
-    // s: sin
+    // s: sine
 
     double c_4 = std::pow(std::cos(orientation), 4);
     double c_3 = std::pow(std::cos(orientation), 3);
@@ -79,25 +83,45 @@ std::vector<double> Section::transformed_reduced_stiffness(double orientation,
     return Q_bar;
 }
 
+// Return (symmetric) matrix A
+// [A_11, A_12, A_22, A_16, A_26, A_66]
 std::vector<double> Section::extensional_stiffness() const
 {
-    double orientation;
+
+    std::vector<double> ext_stiff_coeff(6, 0.0);
+
     double A_11{0.0}, A_12{0.0}, A_22{0.0}, A_16{0.0}, A_26{0.0}, A_66{0.0};
 
-    // for (size_t i = 0; i < thickness_.size(); ++i)
-    // {
-    //     orientation = thickness_.at(i);
+    for (std::size_t i = 0; i < number_of_layers(); ++i)
+    {
+        double orientation = orientation_.at(i);
+        double thickness = thickness_.at(i);
+        auto elastic_coefficients = material_.at(i).get()->elastic_coefficients();
 
-    //     A_11 += transformed_reduced_stiffness(orientation).at(0) * thickness;
-    //     A_12 += transformed_reduced_stiffness(orientation).at(1) * thickness;
-    //     A_22 += transformed_reduced_stiffness(orientation).at(2) * thickness;
-    //     A_16 += transformed_reduced_stiffness(orientation).at(3) * thickness;
-    //     A_26 += transformed_reduced_stiffness(orientation).at(4) * thickness;
-    //     A_66 += transformed_reduced_stiffness(orientation).at(5) * thickness;
-    // }
+        A_11 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(0) * thickness;
+        A_12 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(1) * thickness;
+        A_22 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(2) * thickness;
+        A_16 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(3) * thickness;
+        A_26 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(4) * thickness;
+        A_66 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(5) * thickness;
+
+        for (std::size_t i = 0; i < ext_stiff_coeff.size(); i++)
+            ext_stiff_coeff.at(i) +=
+                transformed_reduced_stiffness(orientation, elastic_coefficients).at(i) * thickness;
+    }
 
     std::vector<double> extensional_stiffness = {A_11, A_12, A_22,
                                                  A_16, A_26, A_66};
+
+    for (auto const &x : extensional_stiffness)
+        std::cout << x << ", ";
+
+    std::cout << "\n";
+
+    for (auto const &x : ext_stiff_coeff)
+        std::cout << x << ", ";
+
+    std::cout << "\n";
 
     return extensional_stiffness;
 }

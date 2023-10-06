@@ -195,8 +195,10 @@ void FEModel::read_materials()
 
             // Get elastic properties
             std::getline(input, line);
+            
             std::vector<std::string> elastic_properties_str =
                 split_string(line, ',');
+
             std::vector<double> elastic_properties_vec;
 
             for (const auto &properties : elastic_properties_str)

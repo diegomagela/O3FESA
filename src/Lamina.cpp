@@ -11,6 +11,7 @@ std::vector<double> Lamina::elastic_coefficients() const
     const double G_13 = elastic_properties_.at(4);
     const double G_23 = elastic_properties_.at(5);
 
+
     const double nu_21 = nu_12 * (E_2 / E_1);
 
     const double Q_11 = E_1 / (1.0 - nu_12 * nu_21);

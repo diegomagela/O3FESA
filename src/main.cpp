@@ -10,5 +10,7 @@ int main()
     model.print_nodes();
     model.print_elements();
 
+    model.section_map["E1"].get()->extensional_stiffness();
+
     return EXIT_SUCCESS;
 }

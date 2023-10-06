@@ -32,22 +32,17 @@ public:
     inline double total_thickness() const;
     inline std::size_t number_of_layers() const { return thickness_.size(); };
     std::vector<double> layer_position() const;
+    std::vector<double> extensional_stiffness() const;
+
+private:
     std::vector<double> transformed_reduced_stiffness(double orientation,
                                                       std::vector<double> elastic_coefficients) const;
 
-    std::vector<double> extensional_stiffness() const;
-
-    // Modifiers
-    void set_materials(MaterialPtr material)
-    {
-        material_.push_back(material);
-    }
-
 private:
-    std::vector<double> thickness_{};          // Thickness of each layer
-    std::vector<std::size_t> nip_{};           // Number of integration points
-    std::vector<MaterialPtr> material_{};      // List of materials
-    std::vector<int> orientation_{};           // List of angle of each layer
+    std::vector<double> thickness_{};     // Thickness of each layer
+    std::vector<std::size_t> nip_{};      // Number of integration points
+    std::vector<MaterialPtr> material_{}; // List of materials
+    std::vector<int> orientation_{};      // List of angle of each layer
 };
 
 #endif // SECTION

@@ -23,7 +23,7 @@
 
     3) Currently, the input file must follow a specific order of keywords, but
        the code should be able to read them in any order.
-       - Is it a good idea to reopen the file multiple times to read a specific 
+       - Is it a good idea to reopen the file multiple times to read a specific
          keyword?
 */
 
@@ -67,7 +67,7 @@ private:
     typedef std::shared_ptr<DLoad> DLoadPtr;
     typedef std::shared_ptr<Element> ElementPtr;
 
-private:
+public: // for debugging purposes
     const std::string filename_{};
 
     /*
