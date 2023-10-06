@@ -21,9 +21,10 @@
     2) For improved performance, use an element's tag when storing element sets.
        - Solved (?): Using pointers to assign nodes to elements.
 
-    3) Currently, the input file must follow a specific order of keywords, but the code
-       should be able to read them in any order.
-       - Is it a good idea to reopen the file multiple times to read a specific keyword?
+    3) Currently, the input file must follow a specific order of keywords, but
+       the code should be able to read them in any order.
+       - Is it a good idea to reopen the file multiple times to read a specific 
+         keyword?
 */
 
 // Class that owns all model properties

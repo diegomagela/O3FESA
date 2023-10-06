@@ -2,12 +2,12 @@
 
 std::vector<double> Isotropic::elastic_coefficients() const
 {
-    // E, NU
+    // E, \nu, G
     const double young_modulus = elastic_properties_.at(0);
     const double poisson = elastic_properties_.at(1);
     const double shear_modulus = (1.0 / 2.0) * young_modulus / (1 + poisson);
 
-    const double delta = young_modulus / (1 - poisson * poisson);
+    const double delta = young_modulus / (1.0 - poisson * poisson);
 
     // Elastic coefficients
     const double Q_11 = delta;
