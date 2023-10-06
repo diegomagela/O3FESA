@@ -85,12 +85,11 @@ std::vector<double> Section::transformed_reduced_stiffness(double orientation,
 
 // Return (symmetric) matrix A
 // [A_11, A_12, A_22, A_16, A_26, A_66]
+// \sum_{k=1}^N \bar{Q}_{ij} (z_{k+1} - z_{k})
 std::vector<double> Section::extensional_stiffness() const
 {
-
-    std::vector<double> ext_stiff_coeff(6, 0.0);
-
-    double A_11{0.0}, A_12{0.0}, A_22{0.0}, A_16{0.0}, A_26{0.0}, A_66{0.0};
+    std::size_t size{6};
+    std::vector<double> extensional_stiffness(size, 0.0);
 
     for (std::size_t i = 0; i < number_of_layers(); ++i)
     {
@@ -98,30 +97,90 @@ std::vector<double> Section::extensional_stiffness() const
         double thickness = thickness_.at(i);
         auto elastic_coefficients = material_.at(i).get()->elastic_coefficients();
 
-        A_11 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(0) * thickness;
-        A_12 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(1) * thickness;
-        A_22 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(2) * thickness;
-        A_16 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(3) * thickness;
-        A_26 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(4) * thickness;
-        A_66 += transformed_reduced_stiffness(orientation, elastic_coefficients).at(5) * thickness;
-
-        for (std::size_t i = 0; i < ext_stiff_coeff.size(); i++)
-            ext_stiff_coeff.at(i) +=
+        for (std::size_t i = 0; i < size; i++)
+        {
+            extensional_stiffness.at(i) +=
                 transformed_reduced_stiffness(orientation, elastic_coefficients).at(i) * thickness;
+        }
     }
 
-    std::vector<double> extensional_stiffness = {A_11, A_12, A_22,
-                                                 A_16, A_26, A_66};
-
-    for (auto const &x : extensional_stiffness)
-        std::cout << x << ", ";
-
-    std::cout << "\n";
-
-    for (auto const &x : ext_stiff_coeff)
-        std::cout << x << ", ";
-
-    std::cout << "\n";
-
     return extensional_stiffness;
+}
+
+// Return (symmetric) matrix D
+// [D_11, D_12, D_22, D_16, D_26, D_66]
+// \sum_{k=1}^N \bar{Q}_{ij} (z^3_{k+1} - z^3_{k})
+std::vector<double> Section::bending_stiffness() const
+{
+    std::size_t size{6};
+    std::vector<double> bending_stiffness(size, 0.0);
+
+    for (std::size_t i = 0; i < number_of_layers(); ++i)
+    {
+        double orientation = orientation_.at(i);
+        double z_1 = layer_position().at(i + 1);
+        double z_0 = layer_position().at(i + 1);
+        double z_diff = std::pow(z_1, 3) - std::pow(z_0, 3);
+
+        auto elastic_coefficients = material_.at(i).get()->elastic_coefficients();
+
+        for (std::size_t i = 0; i < size; i++)
+        {
+            bending_stiffness.at(i) += (1.0 / 3.0) *
+                                       transformed_reduced_stiffness(orientation, elastic_coefficients).at(i) * z_diff;
+        }
+    }
+
+    return bending_stiffness;
+}
+
+// Return (symmetric) matrix B
+// [B_11, B_12, B_22, B_16, B_26, B_66]
+// \sum_{k=1}^N \bar{Q}_{ij} (z^2_{k+1} - z^2_{k})
+std::vector<double> Section::bending_extensional_stiffness() const
+{
+    std::size_t size{6};
+    std::vector<double> bending_extensional_stiffness(size, 0.0);
+
+    for (std::size_t i = 0; i < number_of_layers(); ++i)
+    {
+        double orientation = orientation_.at(i);
+        double z_1 = layer_position().at(i + 1);
+        double z_0 = layer_position().at(i + 1);
+        double z_diff = std::pow(z_1, 2) - std::pow(z_0, 2);
+
+        auto elastic_coefficients = material_.at(i).get()->elastic_coefficients();
+
+        for (std::size_t i = 0; i < size; i++)
+        {
+            bending_extensional_stiffness.at(i) += (1.0 / 2.0) *
+                                                   transformed_reduced_stiffness(orientation, elastic_coefficients).at(i) * z_diff;
+        }
+    }
+
+    return bending_extensional_stiffness;
+}
+
+// Return (symmetric) matrix C
+// [A_44, A_45, A_55]
+// \sum_{k=1}^N \bar{Q}_{ij} (z_{k+1} - z_{k})
+std::vector<double> Section::extensional_shear_stiffness() const
+{
+    std::size_t size{3};
+    std::vector<double> extensional_shear_stiffness(size, 0.0);
+
+    for (std::size_t i = 0; i < number_of_layers(); ++i)
+    {
+        double orientation = orientation_.at(i);
+        double thickness = thickness_.at(i);
+        auto elastic_coefficients = material_.at(i).get()->elastic_coefficients();
+
+        for (std::size_t i = 0; i < size; i++)
+        {
+            extensional_shear_stiffness.at(i) +=
+                transformed_reduced_stiffness(orientation, elastic_coefficients).at(i) * thickness;
+        }
+    }
+
+    return extensional_shear_stiffness;
 }

@@ -33,6 +33,13 @@ public:
     inline std::size_t number_of_layers() const { return thickness_.size(); };
     std::vector<double> layer_position() const;
     std::vector<double> extensional_stiffness() const;
+    std::vector<double> bending_stiffness() const;
+    std::vector<double> bending_extensional_stiffness() const;
+    std::vector<double> extensional_shear_stiffness() const;
+
+
+
+
 
 private:
     std::vector<double> transformed_reduced_stiffness(double orientation,
