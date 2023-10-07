@@ -39,7 +39,7 @@ public:
         if (!input.is_open())
         {
             std::cerr << "Input file not found!" << std::endl;
-            abort();
+            throw std::exception();
         }
     };
 
