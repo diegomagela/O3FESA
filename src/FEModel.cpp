@@ -195,7 +195,7 @@ void FEModel::read_materials()
 
             // Get elastic properties
             std::getline(input, line);
-            
+
             std::vector<std::string> elastic_properties_str =
                 split_string(line, ',');
 
@@ -275,7 +275,21 @@ void FEModel::read_sections()
                 material_name = shell_section_str.at(2);
                 orientation = std::stoi(shell_section_str.at(3));
 
-                MaterialPtr material = material_map[material_name];
+                MaterialPtr material;
+
+                if (material_map.contains(material_name))
+                    material = material_map[material_name];
+
+                else
+                {
+                    std::cerr << '\n'
+                              << "Material "
+                              << material_name
+                              << " defined in *SHELL SECTION not found!"
+                              << '\n';
+                              
+                    throw std::exception();
+                }
 
                 thickness_vec.push_back(thickness);
                 nip_vec.push_back(nip);
