@@ -165,7 +165,7 @@ for i in elementTagsPhysicalGroup:
 # LAYER THICKNESS, NUMBER OF INTEGRATION POINTS, MATERIAL, ORIENTATION
 layerThickness = 0.1
 nIntPts = 0
-materialName = "CFPR"
+materialName = "CFRP"
 angleVec = [0, 90]
 file.write("*SHELL SECTION, ELSET=EALL, COMPOSITE" + '\n')
 
