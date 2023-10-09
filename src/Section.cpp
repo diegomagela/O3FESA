@@ -104,7 +104,8 @@ std::vector<double> Section::extensional_stiffness() const
         A_66 += transformed_reduced_stiffness(theta, elastic_coefficients).at(5) * thickness;
     }
 
-    std::vector<double> extensional_stiffness = {A_11, A_12, A_16, A_22, A_26, A_66};
+    std::vector<double> extensional_stiffness = {A_11, A_12, A_16, A_22, A_26,
+                                                 A_66};
 
     return extensional_stiffness;
 }
