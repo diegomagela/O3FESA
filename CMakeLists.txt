@@ -2,10 +2,10 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Create a project
-project(FEMSH)
+project(O3FESA)
 
 # Set the project version number
-project(FEMSH VERSION 0.1)
+project(O3FESA VERSION 0.1)
 
 # Set the variable CMAKE_CXX_STANDARD to 20
 # and the variable CMAKE_CXX_STANDARD_REQUIRED to True
@@ -24,20 +24,20 @@ set(SOURCES
     src/Lamina.cpp
     src/FEModelIO.cpp
     src/Section.cpp
-    src/Q4.cpp
+    # src/Q4.cpp
     src/Q9.cpp
     src/FEModel.cpp
     src/Node.cpp
     src/main.cpp
 )
 
-add_executable(femsh ${SOURCES})
+add_executable(O3FESA ${SOURCES})
 
 # Use target_include_directories to include header files
-target_include_directories(femsh PUBLIC "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(O3FESA PUBLIC "${CMAKE_SOURCE_DIR}/include")
 
 # Include warning flags
-# target_compile_options(femsh PRIVATE -Werror -Wall -Wextra)
-target_compile_options(femsh PRIVATE -Wall -Wextra)
+# target_compile_options(O3FESA PRIVATE -Werror -Wall -Wextra)
+target_compile_options(O3FESA PRIVATE -Wall -Wextra)
 
 
