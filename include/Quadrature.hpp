@@ -35,7 +35,7 @@ public:
     // Selectors
 
     inline std::vector<double> get_points() const { return points_; }
-    inline std::vector<double> get_weights() const { return points_; }
+    inline std::vector<double> get_weights() const { return weights_; }
 
 private:
     std::vector<double> points_;
