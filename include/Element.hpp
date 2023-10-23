@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+#include <Eigen/Dense>
+
 #include "DLoad.hpp"
 #include "Node.hpp"
 #include "Section.hpp"
@@ -44,28 +46,44 @@ public:
     // Selectors
     bool has_load() const;
     void print() const;
+    std::vector<double> get_x_coordinates() const;
+    std::vector<double> get_y_coordinates() const;
+    std::vector<double> get_z_coordinates() const;
+
+    inline SectionPtr get_section() const { return section_; }
 
     // Modifiers
     inline void set_nodes(std::vector<NodePtr> nodes) { nodes_ = nodes; }
     inline void set_dload(DLoadPtr dload) { dload_ = dload; }
     inline void set_section(SectionPtr section) { section_ = section; }
 
-    // Pure virtual functions to be implemented
+    // Pure virtual functions //
 
-    // stiffness_matrix() = 0;
-    // mass_matrix() = 0;
+    // Jacobian transformation methods
+
+    virtual std::vector<double> jacobian_matrix(const double xi,
+                                                const double eta) const = 0;
+
+    virtual double jacobian(const double xi, const double eta) const = 0;
+
+    virtual std::vector<double> jacobian_inverse_matrix(const double xi,
+                                                        const double eta) const = 0;
+
+    // Matrices
+    virtual Eigen::MatrixXd stiffness_matrix() const = 0;
+    // virtual Eigen::MatrixXd mass_matrix() const = 0;
 
     // Friend
     friend std::ostream &operator<<(std::ostream &os, const Element &element);
 
 private:
     std::string type_{};           // Element type
-    std::size_t tag_{};            // Element's tag
+    std::size_t tag_{};            // Element tag
     std::size_t n_nodes_{};        // Number of nodes
     std::size_t dof_per_node_{};   // Number of degree of freedom per node
-    std::vector<NodePtr> nodes_{}; // List of element's nodes
+    std::vector<NodePtr> nodes_{}; // List of element nodes
     DLoadPtr dload_;               // Area distributed loading
-    SectionPtr section_;
+    SectionPtr section_;           // Element section
 };
 
 #endif // ELEMENT_H
