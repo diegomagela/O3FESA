@@ -34,6 +34,12 @@ public:
 
     // Selectors
     inline std::size_t node_tag() const { return tag_; };
+
+    // Return node coordinates
+    inline double get_x() const { return x_; };
+    inline double get_y() const { return y_; };
+    inline double get_z() const { return z_; };
+
     bool has_boundary() const;
     bool has_cload() const;
     void print() const;
