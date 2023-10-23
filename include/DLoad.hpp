@@ -17,6 +17,10 @@ public:
     DLoad(DLoad &&) = default;
     DLoad &operator=(DLoad &&) = default;
 
+    // Selectors
+    inline std::size_t element_tag() const { return element_tag_; }
+    inline std::size_t load_value() const { return value_; }
+
 private:
     std::size_t element_tag_{};
     double value_{};
