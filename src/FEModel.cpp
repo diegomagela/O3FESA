@@ -392,8 +392,8 @@ void FEModel::read_elements()
                 if (element_type == "Q9")
                     element = std::make_shared<Q9>(element_tag);
 
-                if (element_type == "Q4")
-                    element = std::make_unique<Q4>(element_tag);
+                // if (element_type == "Q4")
+                //     element = std::make_unique<Q4>(element_tag);
 
                 // Set element's nodes
                 element.get()->set_nodes(element_nodes);
