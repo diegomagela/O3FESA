@@ -38,9 +38,15 @@ public:
                                                 const double eta) const override;
 
     // Matrices
-
+    Eigen::MatrixXd shape_functions_matrix(const double xi,
+                                           const double eta) const override;
+                                           
     Eigen::MatrixXd stiffness_matrix() const override;
     // Eigen::MatrixXd mass_matrix() const override;
+
+    // Vectors
+
+    Eigen::VectorXd load_vector() const override;
 
 private:
     std::vector<double> shape_functions(const double xi, const double eta) const;

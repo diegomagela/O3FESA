@@ -213,6 +213,24 @@ Eigen::MatrixXd Q9::strain_displacement_shear(const double xi,
     return shear_matrix;
 }
 
+Eigen::MatrixXd Q9::shape_functions_matrix(const double xi,
+                                           const double eta) const
+{
+    Eigen::VectorXd N = Eigen::Map<Eigen::VectorXd>(
+        shape_functions(xi, eta).data(), n_nodes_);
+
+    Eigen::MatrixXd shape_functions_matrix =
+        Eigen::MatrixXd::Zero(dof_per_node_, dof_per_node_ * n_nodes_);
+
+    shape_functions_matrix.block(0, 0 * n_nodes_, 1, n_nodes_) = N.transpose();
+    shape_functions_matrix.block(1, 1 * n_nodes_, 1, n_nodes_) = N.transpose();
+    shape_functions_matrix.block(2, 2 * n_nodes_, 1, n_nodes_) = N.transpose();
+    shape_functions_matrix.block(3, 3 * n_nodes_, 1, n_nodes_) = N.transpose();
+    shape_functions_matrix.block(4, 4 * n_nodes_, 1, n_nodes_) = N.transpose();
+
+    return shape_functions_matrix;
+}
+
 Eigen::MatrixXd Q9::stiffness_matrix() const
 {
     // Material stiffness matrices
@@ -267,9 +285,9 @@ Eigen::MatrixXd Q9::stiffness_matrix() const
     As << A44, A45,
         A45, A55;
 
-    constexpr std::size_t n_points = 3;
+    constexpr std::size_t n_quadrature_points = 3;
 
-    Quadrature quadrature(n_points);
+    Quadrature quadrature(n_quadrature_points);
 
     std::vector<double> points = quadrature.get_points();
     std::vector<double> weights = quadrature.get_weights();
@@ -287,9 +305,9 @@ Eigen::MatrixXd Q9::stiffness_matrix() const
         Eigen::MatrixXd::Zero(n_nodes_ * dof_per_node_,
                               n_nodes_ * dof_per_node_);
 
-    for (std::size_t i = 0; i < n_points; ++i)
+    for (std::size_t i = 0; i < n_quadrature_points; ++i)
     {
-        for (std::size_t j = 0; j < n_points; ++j)
+        for (std::size_t j = 0; j < n_quadrature_points; ++j)
         {
             double xi_i = points.at(i);
             double eta_j = points.at(j);
@@ -316,4 +334,56 @@ Eigen::MatrixXd Q9::stiffness_matrix() const
     Eigen::MatrixXd K = K_mm + K_bm + K_bm.transpose() + K_bb + K_ss;
 
     return K;
+}
+
+Eigen::VectorXd Q9::load_vector() const
+{
+    Eigen::VectorXd load_vector =
+        Eigen::VectorXd::Zero(dof_per_node_ * n_nodes_);
+
+    if (has_load())
+    {
+        constexpr std::size_t n_quadrature_points = 2;
+
+        Quadrature quadrature(n_quadrature_points);
+
+        std::vector<double> points = quadrature.get_points();
+        std::vector<double> weights = quadrature.get_weights();
+
+        // Loading vector
+        // f^e = N^T p
+        // It is being considering only transversal distributed loading
+
+        Eigen::VectorXd p(dof_per_node_);
+        p << 0, 0, load_value(), 0, 0;
+
+        for (std::size_t i = 0; i < n_quadrature_points; ++i)
+        {
+            for (std::size_t j = 0; j < n_quadrature_points; ++j)
+            {
+                double xi_i = points.at(i);
+                double eta_j = points.at(j);
+                double w_i = weights.at(i);
+                double w_j = weights.at(j);
+
+                Eigen::MatrixXd N = shape_functions_matrix(xi_i, eta_j);
+
+                // Eigen::VectorXd N = Eigen::Map<Eigen::VectorXd>(
+                //     shape_functions_d_x(xi_i, eta_j).data(), n_nodes_);
+
+                // det(J)
+                double J = jacobian(xi_i, eta_j);
+
+                // area
+                double d_omega = J * w_i * w_j;
+
+                load_vector += N.transpose() * p * d_omega;
+            }
+        }
+
+        return load_vector;
+    }
+
+    else
+        return load_vector;
 }

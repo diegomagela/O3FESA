@@ -45,10 +45,12 @@ public:
 
     // Selectors
     bool has_load() const;
-    void print() const;
+    inline double load_value() const { return dload_.get()->load_value(); }
     std::vector<double> get_x_coordinates() const;
     std::vector<double> get_y_coordinates() const;
     std::vector<double> get_z_coordinates() const;
+
+    void print() const;
 
     inline SectionPtr get_section() const { return section_; }
 
@@ -70,8 +72,13 @@ public:
                                                         const double eta) const = 0;
 
     // Matrices
+    virtual Eigen::MatrixXd shape_functions_matrix(const double xi,
+                                                   const double eta) const = 0;
     virtual Eigen::MatrixXd stiffness_matrix() const = 0;
     // virtual Eigen::MatrixXd mass_matrix() const = 0;
+
+    // Vectors
+    virtual Eigen::VectorXd load_vector() const = 0;
 
     // Friend
     friend std::ostream &operator<<(std::ostream &os, const Element &element);
