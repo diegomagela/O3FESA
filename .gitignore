@@ -1,5 +1,5 @@
 build/
 .vscode/
-TODO.txt
-*.txt
+/*.txt
 src/main.cpp
+maxima/
