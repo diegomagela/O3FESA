@@ -5,12 +5,14 @@
 #include <fstream>
 #include <memory>
 #include <map>
-#include <map>
+
+#include <Eigen/Sparse>
 
 #include "Element.hpp"
 #include "Material.hpp"
 #include "Node.hpp"
 #include "Section.hpp"
+#include "Triplet.hpp"
 
 /*
     TODO
@@ -37,10 +39,7 @@ public:
         std::string line;
 
         if (!input.is_open())
-        {
-            std::cerr << "Input file not found!" << std::endl;
-            throw std::exception();
-        }
+            throw std::runtime_error("\nINPUT FILE NOT FOUND!");
     };
 
     // The rule of five
@@ -49,6 +48,19 @@ public:
     FEModel &operator=(FEModel const &) = default;
     FEModel(FEModel &&) = default;
     FEModel &operator=(FEModel &&) = default;
+
+    //// Selectors
+    inline std::size_t n_nodes() const { return node_map.size(); }
+    inline std::size_t n_elements() const { return element_map.size(); }
+
+    // TODO 
+    // Considering 5 DOF per node here. If the same node is shared by
+    // multiple types of elements, determine how to calculate the total number
+    // of DOFs of the model.
+    
+    const std::size_t n_dof = 5;
+    // Return the total number of DOF for the model.
+    inline std::size_t total_dof() const { return n_dof * n_nodes(); }
 
     // Read mesh
     void read_input();
@@ -93,11 +105,11 @@ public: // for debugging purposes
     // MATERIAL NAME, MATERIAL
     std::map<std::string, MaterialPtr> material_map{};
 
-    // ELEMENT SET, SECTION
-    std::map<std::string, SectionPtr> section_map{};
-
     // ELEMENT TAG, DLOAD
     std::map<std::size_t, DLoadPtr> dload_map{};
+
+    // ELEMENT SET, SECTION
+    std::map<std::string, SectionPtr> section_map{};
 
     // ELEMENT TAG, ELEMENT
     std::map<std::size_t, ElementPtr> element_map{};
@@ -109,6 +121,62 @@ public: // for debugging purposes
     void read_sections();
     void read_dload();
     void read_elements();
+    void read_temperature();
+
+    // Check if the stiffness, or load, degree of freedom (dof) is in the
+    // boundary condition dof.
+    // Zero out all row and column entries that contain any boundary dof.
+    // Set "X" to the diagonal entry.
+    bool check_boundary_dof(const std::vector<std::size_t> dofs,
+                            const std::size_t row) const;
+
+    bool check_boundary_dof(const std::vector<std::size_t> dofs,
+                            const std::size_t row,
+                            const std::size_t col) const;
+
+    //// Assembling
+
+    // Stiffness
+    std::vector<Triplet> 
+    linear_stiffness_matrix() const;
+
+    std::vector<Triplet> 
+    nonlinear_stiffness_matrix(const std::vector<double> &solution) const;
+
+    std::vector<Triplet>
+    tangent_stiffness_matrix(const std::vector<double> &solution) const;
+
+    // Force
+
+    // Element distributed loading vector
+    std::vector<Triplet> element_pressure_load_vector() const;
+
+    // Element thermal loading vector
+    std::vector<Triplet> element_thermal_load_vector() const;
+
+    // Nodal force vector
+    std::vector<Triplet> nodal_load_vector() const;
+
+    // Total force vector
+    std::vector<Triplet> force_vector() const;
+
+    // Internal force vector
+    // F_int = K(U)U
+    std::vector<Triplet> 
+    internal_force_vector(const std::vector<double> &solution) const;
+
+    // Residual vector
+    // R = K(U)U - F = F_int - F_ext
+    std::vector<Triplet> 
+    residual_vector(const std::vector<double> &solution) const;
+
+    //// Solver
+    std::vector<double> linear_solver() const;
+    std::vector<double> nonlinear_solver() const;
+
+    //// Output
+    void write_result(const std::vector<double> &solution,
+                      std::string filename) const;
 };
 
 #endif // FE_MODEL_H
