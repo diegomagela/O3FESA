@@ -29,6 +29,8 @@ public:
             return true;
     }
 
+    inline std::vector<bool> imposed_dofs() const { return imposed_dofs_; }
+
 private:
     std::size_t node_tag_{};
     std::vector<bool> imposed_dofs_{};
