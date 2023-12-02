@@ -71,3 +71,12 @@ std::string get_shell_section_set(const std::string &input)
 
     return set;
 }
+
+std::string get_expansion_type(const std::string &input)
+{
+    std::vector<std::string> splitted_string = split_string(input, ',');
+    std::string expansion_type = splitted_string.at(1);
+    std::string type = split_string(expansion_type, '=').at(1);
+
+    return type;
+}
