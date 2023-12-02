@@ -3,3 +3,5 @@ build/
 /*.txt
 src/main.cpp
 maxima/
+python/
+papers/
