@@ -19,6 +19,12 @@ public:
     CLoad(CLoad &&) = default;
     CLoad &operator=(CLoad &&) = default;
 
+    // Selectors
+    inline std::size_t node_tag() const { return node_tag_; }
+    std::vector<std::size_t> local_dofs() const;
+    std::vector<std::size_t> global_dofs() const;
+    std::vector<double> load_values() const;
+
 private:
     std::size_t node_tag_{};
     std::vector<bool> loading_dofs_{};
