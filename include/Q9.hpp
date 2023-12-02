@@ -34,31 +34,50 @@ public:
 
     double jacobian(const double xi, const double eta) const override;
 
-    std::vector<double> jacobian_inverse_matrix(const double xi,
-                                                const double eta) const override;
+    std::vector<double>
+    jacobian_inverse_matrix(const double xi,
+                            const double eta) const override;
 
     // Matrices
     Eigen::MatrixXd shape_functions_matrix(const double xi,
                                            const double eta) const override;
-                                           
-    Eigen::MatrixXd stiffness_matrix() const override;
+
+    Eigen::MatrixXd linear_stiffness_matrix() const override;
+
+    // w_e: the w displacement within the element
+    Eigen::MatrixXd
+    nonlinear_stiffness_matrix(const std::vector<double> &w_e) const override;
+
+    Eigen::MatrixXd thermal_stiffness_matrix() const;
+
+    // Element tangent matrix
+    // q_e: all dofs displacement
+    Eigen::MatrixXd
+    tangent_stiffness_matrix(const std::vector<double> &q_e) const override;
+
+    // TESTING
+
+    // w_e: the w displacement within the element
+    Eigen::VectorXd
+    internal_force(const std::vector<double> &w_e) const override;
+
     // Eigen::MatrixXd mass_matrix() const override;
 
-    // Vectors
-
-    Eigen::VectorXd load_vector() const override;
-
 private:
-    std::vector<double> shape_functions(const double xi, const double eta) const;
+    std::vector<double> shape_functions(const double xi,
+                                        const double eta) const;
+
     std::vector<double> shape_functions_d_xi(const double xi,
                                              const double eta) const;
+
     std::vector<double> shape_functions_d_eta(const double xi,
                                               const double eta) const;
+
     std::vector<double> shape_functions_d_x(const double xi,
                                             const double eta) const;
+
     std::vector<double> shape_functions_d_y(const double xi,
                                             const double eta) const;
-
     // Strain-displacement matrices
 
     // TODO
@@ -77,6 +96,28 @@ private:
     // B_s
     Eigen::MatrixXd strain_displacement_shear(const double xi,
                                               const double eta) const;
+
+    // B_theta
+    Eigen::MatrixXd strain_displacement_rotation(const double xi,
+                                                 const double eta) const;
+
+    // Theta 3x2 matrix
+    Eigen::MatrixXd
+    strain_displacement_nonlinear_rotation(const double xi,
+                                           const double eta,
+                                           const std::vector<double> &q_e) const;
+
+    // N_th
+    Eigen::VectorXd thermal_force_resultants() const;
+
+    // M_th
+    Eigen::VectorXd thermal_moment_resultants() const;
+
+    // F_pressure
+    inline Eigen::VectorXd pressure_load_vector() const override;
+
+    // F_thermal
+    inline Eigen::VectorXd thermal_load_vector() const override;
 
 private:
     inline static std::string type_{"Q9"};
