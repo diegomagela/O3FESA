@@ -42,15 +42,16 @@ std::vector<double> Section::transformed_reduced_stiffness(double orientation,
     // c: cos
     // s: sine
 
-    double c_4 = std::pow(std::cos(orientation), 4);
-    double c_3 = std::pow(std::cos(orientation), 3);
-    double c_2 = std::pow(std::cos(orientation), 2);
     double c = std::cos(orientation);
-
-    double s_4 = std::pow(std::sin(orientation), 4);
-    double s_3 = std::pow(std::sin(orientation), 3);
-    double s_2 = std::pow(std::sin(orientation), 2);
     double s = std::sin(orientation);
+
+    double c_4 = c * c * c * c;
+    double c_3 = c * c * c;
+    double c_2 = c * c;
+
+    double s_4 = s * s * s * s;
+    double s_3 = s * s * s;
+    double s_2 = s * s;
 
     double Q_bar_11 = Q_11 * c_4 +
                       2.0 * (Q_12 + 2.0 * Q_66) * s_2 * c_2 +
@@ -80,6 +81,28 @@ std::vector<double> Section::transformed_reduced_stiffness(double orientation,
                               Q_bar_66, Q_bar_44, Q_bar_45, Q_bar_55};
 
     return Q_bar;
+}
+
+std::vector<double> Section::transformed_thermal_coefficients(double orientation,
+                                                              std::vector<double> thermal_coefficients) const
+{
+    constexpr double pi = M_PI;
+    orientation *= pi / 180.0;
+
+    double c = std::cos(orientation);
+    double s = std::sin(orientation);
+
+    double c_2 = c * c;
+    double s_2 = s * s;
+
+    double alpha_1 = thermal_coefficients.at(0);
+    double alpha_2 = thermal_coefficients.at(1);
+
+    double alpha_x = alpha_1 * c_2 + alpha_2 * s_2;
+    double alpha_y = alpha_1 * s_2 + alpha_2 * c_2;
+    double alpha_xy = 2.0 * (alpha_1 - alpha_2) * s * c; // 2 \alpha_{xy}
+
+    return {alpha_x, alpha_y, alpha_xy};
 }
 
 // Return (symmetric) matrix A
@@ -192,4 +215,91 @@ std::vector<double> Section::extensional_shear_stiffness() const
     std::vector<double> extensional_shear_stiffness = {A_44, A_45, A_55};
 
     return extensional_shear_stiffness;
+}
+
+std::vector<double> Section::thermal_force_resultants() const
+{
+    double N_thermal_xx{0.0}, N_thermal_yy{0.0}, N_thermal_xy{0.0};
+
+    if (has_temperature())
+    {
+        double delta_T = temperature_;
+
+        for (size_t i = 0; i < number_of_layers(); ++i)
+        {
+            double theta = orientation_.at(i);
+            double thickness = thickness_.at(i);
+            std::vector<double> elastic_coefficients =
+                material_.at(i).get()->elastic_coefficients();
+
+            std::vector<double> thermal_coefficients =
+                material_.at(i).get()->thermal_expansion_coefficients();
+
+            double Q_bar_11 = transformed_reduced_stiffness(theta, elastic_coefficients).at(0);
+            double Q_bar_12 = transformed_reduced_stiffness(theta, elastic_coefficients).at(1);
+            double Q_bar_16 = transformed_reduced_stiffness(theta, elastic_coefficients).at(2);
+            double Q_bar_22 = transformed_reduced_stiffness(theta, elastic_coefficients).at(3);
+            double Q_bar_26 = transformed_reduced_stiffness(theta, elastic_coefficients).at(4);
+            double Q_bar_66 = transformed_reduced_stiffness(theta, elastic_coefficients).at(5);
+
+            double alpha_xx = transformed_thermal_coefficients(theta, thermal_coefficients).at(0);
+            double alpha_yy = transformed_thermal_coefficients(theta, thermal_coefficients).at(1);
+            double alpha_xy = transformed_thermal_coefficients(theta, thermal_coefficients).at(2);
+
+            N_thermal_xx += (Q_bar_11 * alpha_xx + Q_bar_12 * alpha_yy + Q_bar_16 * alpha_xy) * thickness * delta_T;
+            N_thermal_yy += (Q_bar_12 * alpha_xx + Q_bar_22 * alpha_yy + Q_bar_26 * alpha_xy) * thickness * delta_T;
+            N_thermal_xy += (Q_bar_16 * alpha_xx + Q_bar_26 * alpha_yy + Q_bar_66 * alpha_xy) * thickness * delta_T;
+        }
+    }
+
+    return {N_thermal_xx, N_thermal_yy, N_thermal_xy};
+}
+
+std::vector<double> Section::thermal_moment_resultants() const
+{
+    double M_thermal_xx{0.0}, M_thermal_yy{0.0}, M_thermal_xy{0.0};
+
+    if (has_temperature())
+    {
+        double delta_T = temperature_;
+
+        for (size_t i = 0; i < number_of_layers(); ++i)
+        {
+            double theta = orientation_.at(i);
+
+            double z_b = std::pow(layer_position().at(i + 1), 2) -
+                         std::pow(layer_position().at(i), 2);
+
+            std::vector<double> elastic_coefficients =
+                material_.at(i).get()->elastic_coefficients();
+
+            std::vector<double> thermal_coefficients =
+                material_.at(i).get()->thermal_expansion_coefficients();
+
+            double Q_bar_11 = transformed_reduced_stiffness(theta, elastic_coefficients).at(0);
+            double Q_bar_12 = transformed_reduced_stiffness(theta, elastic_coefficients).at(1);
+            double Q_bar_16 = transformed_reduced_stiffness(theta, elastic_coefficients).at(2);
+            double Q_bar_22 = transformed_reduced_stiffness(theta, elastic_coefficients).at(3);
+            double Q_bar_26 = transformed_reduced_stiffness(theta, elastic_coefficients).at(4);
+            double Q_bar_66 = transformed_reduced_stiffness(theta, elastic_coefficients).at(5);
+
+            double alpha_xx = transformed_thermal_coefficients(theta, thermal_coefficients).at(0);
+            double alpha_yy = transformed_thermal_coefficients(theta, thermal_coefficients).at(1);
+            double alpha_xy = transformed_thermal_coefficients(theta, thermal_coefficients).at(2);
+
+            M_thermal_xx += (1.0 / 2.0) * (Q_bar_11 * alpha_xx + Q_bar_12 * alpha_yy + Q_bar_16 * alpha_xy) * z_b * delta_T;
+            M_thermal_yy += (1.0 / 2.0) * (Q_bar_12 * alpha_xx + Q_bar_22 * alpha_yy + Q_bar_26 * alpha_xy) * z_b * delta_T;
+            M_thermal_xy += (1.0 / 2.0) * (Q_bar_16 * alpha_xx + Q_bar_26 * alpha_yy + Q_bar_66 * alpha_xy) * z_b * delta_T;
+        }
+    }
+
+    return {M_thermal_xx, M_thermal_yy, M_thermal_xy};
+}
+
+bool Section::has_temperature() const
+{
+    if (std::abs(temperature_) > 0)
+        return true;
+
+    return false;
 }
