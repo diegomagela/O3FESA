@@ -1,0 +1,852 @@
+\documentclass[12pt]{article}
+
+% packages
+\usepackage{amsmath}
+\numberwithin{equation}{section}
+\usepackage{hyperref}
+
+% font
+\usepackage{stix}
+\usepackage[T1]{fontenc}
+
+% new commands
+
+% partial derivative
+% #1 - numerator
+% #2 - denominator
+\newcommand{\pdiff}[2]{ \frac{\partial #1}{ \partial #2} }
+\newcommand{\dpdiff}[2]{ \dfrac{\partial #1}{ \partial #2} }
+
+% element notation
+\def\el{{ \mathcal{E} }}
+
+% increase line space in B(b)matrix environment
+% \renewcommand{\arraystretch}{1.75}
+
+
+
+\title{O3FESA}
+\author{Diego Magela Lemos}
+\date{version 0.1 \\ \today}
+
+\begin{document}
+
+\maketitle
+
+\section{What is O3FESA?}
+
+O3FESA (\textbf{O}pen-source \textbf{O}bject-\textbf{O}riented \textbf{F}inite \textbf{E}lement \textbf{S}hell \textbf{A}nalysis) is a software written in \texttt{C++} using the objected-oriented programming paradigm.
+
+\section{Shell theories}
+
+\subsection{First-order shear deformation theory}
+
+\subsubsection{Displacement field}
+
+\begin{subequations}
+    \begin{align}
+        u_1(x, y, z, t) & = u(x, y, t) + z \phi_x(x, y, t) \\
+        u_2(x, y, z, t) & = v(x, y, t) + z \phi_y(x, y, t) \\
+        u_3(x, y, z, t) & = w(x, y, t)
+    \end{align}
+    %
+    \label{eq:displacement_field}
+\end{subequations}
+%
+The displacement vector is defined as
+%
+\begin{equation}
+    q =
+    \begin{Bmatrix}
+        u      \\
+        v      \\
+        w      \\
+        \phi_x \\
+        \phi_y
+    \end{Bmatrix}
+    %
+    \label{eq:displacement_vector}
+\end{equation}
+% 
+\subsubsection{Strain}
+The Green-Lagrange strain tensor is given by:
+%
+\begin{equation}
+    E_{jk} = \frac{1}{2}
+    \left(
+    \pdiff{u_j}{X_k} +
+    \pdiff{u_k}{X_j} +
+    \pdiff{u_m}{X_j} \pdiff{u_m}{X_k}
+    \right),
+    \qquad j, k, l = 1, 2, 3
+    %
+    \label{eq:green_lagrange}
+\end{equation}
+%
+If the rotation of transverse normals are moderate, the strain-displacement relations in Eq.~\eqref{eq:green_lagrange} simplifies to von Kármán strains:
+%
+\begin{equation}
+    \begin{Bmatrix}
+        \epsilon_{xx} \\
+        \epsilon_{yy} \\
+        \gamma_{xy}   \\
+        \gamma_{xz}   \\
+        \gamma_{yz}   \\
+    \end{Bmatrix} =
+    {\renewcommand\arraystretch{2}
+    \begin{Bmatrix}
+        \dpdiff{u}{x} + \dfrac{1}{2} \left(\dpdiff{w}{x}\right)^2   \\
+        \dpdiff{v}{y} + \dfrac{1}{2} \left(\dpdiff{w}{x}\right)^2   \\
+        \dpdiff{u}{y} + \dpdiff{v}{x} + \dpdiff{w}{x} \dpdiff{w}{y} \\
+        \dpdiff{w}{x} + \phi_x                                      \\
+        \dpdiff{w}{x} + \phi_y                                      \\
+    \end{Bmatrix}
+    }
+    + z
+        {\renewcommand\arraystretch{2}
+            \begin{Bmatrix}
+                \dpdiff{\phi_x}{x}                      \\
+                \dpdiff{\phi_y}{y}                      \\
+                \dpdiff{\phi_x}{y} + \dpdiff{\phi_y}{x} \\
+                0                                       \\
+                0
+            \end{Bmatrix}
+        }
+    %
+    \label{eq:strain_displacement}
+\end{equation}
+%
+or in a compact form
+\begin{equation}
+    \epsilon = \epsilon^0 + z \epsilon^1
+    \label{eq:strain_displacement_2}
+\end{equation}
+%
+\subsubsection{Principle of Virtual Work}
+The Principle of Virtual Work (PVW) states that the sum of internal and external virtual works must be zero:
+%
+\begin{equation}
+    \delta W^{\text{int}} + \delta W^{\text{ext}} = 0
+    %
+    \label{eq:pvw_1}
+\end{equation}
+%
+The virtual internal work is related to the virtual strain energy, given by
+%
+\begin{equation}
+    \delta W^{\text{int}} = \int_V \delta \epsilon^T \sigma ~ \text{d}V
+    %
+    \label{eq:strain_energy}
+\end{equation}
+% % >>>
+The stress vector, \(\sigma\), is defined as
+%
+\begin{equation}
+    \sigma =
+    \begin{Bmatrix}
+        \sigma_{xx} \\
+        \sigma_{yy} \\
+        \tau_{xy}   \\
+        \tau_{xz}   \\
+        \tau_{yz}   \\
+    \end{Bmatrix}
+    =
+    C \left( \epsilon  - \epsilon_0 \right)
+    %
+    \label{eq:stress_vector}
+\end{equation}
+%
+in which \( C \) is the material constitutive matrix and \( \epsilon_0 \) is initial deformation vector. These relations are defined as
+%
+\begin{equation}
+    C =
+    \begin{bmatrix}
+        \bar{Q}_m & 0         \\
+        0         & \bar{Q}_s
+    \end{bmatrix}
+\end{equation}
+%
+and
+%
+\begin{equation}
+    \epsilon_0 =
+    \begin{Bmatrix}
+        \alpha \\
+        0
+    \end{Bmatrix} \Delta T
+\end{equation}
+%
+Substituting Eqs.~\eqref{eq:strain_displacement_2} in Eq.~\eqref{eq:strain_energy} yields
+%
+\begin{equation}
+    \delta W^{\text{int}} = \int_\Omega \int_{-h/2}^{h/2}
+    \left(
+    \delta \epsilon^T \sigma +
+    z \delta \epsilon^T \sigma
+    \right)
+    \text{d}z ~ \text{d}\Omega
+    %
+    \label{eq:strain_energy_2}
+\end{equation}
+%
+Integrating~\eqref{eq:strain_displacement_2} through the thickness, one obtains
+%
+\begin{equation}
+    \delta W^{\text{int}} = \int_\Omega
+    \left(
+    \delta \epsilon_m^T N +
+    \delta \epsilon_b^T M +
+    \delta \epsilon_s^T Q
+    \right)
+    \text{d}\Omega
+    %
+    \label{eq:strain_energy_3}
+\end{equation}
+%
+where the strains components, stress and thermal resultants, respectively
+%
+\begin{subequations}
+    {\renewcommand\arraystretch{1.75}
+        \begin{align}
+            \label{eq:membrane_strain}
+            \epsilon_m & =
+            \begin{Bmatrix}
+                \dpdiff{u}{x} + \dfrac{1}{2} \dpdiff{w}{x}^2                \\
+                \dpdiff{v}{y} + \dfrac{1}{2} \left(\dpdiff{w}{x}\right)^2   \\
+                \dpdiff{u}{y} + \dpdiff{v}{x} + \dpdiff{w}{x} \dpdiff{w}{y} \\
+            \end{Bmatrix} \\
+            %%%
+            \label{eq:bending_strain}
+            \epsilon_b & =
+            \begin{Bmatrix}
+                \dpdiff{\phi_x}{x}                      \\
+                \dpdiff{\phi_y}{y}                      \\
+                \dpdiff{\phi_x}{y} + \dpdiff{\phi_y}{x} \\
+            \end{Bmatrix}                     \\
+            %%%
+            \label{eq:shear_strain}
+            \epsilon_s & =
+            \begin{Bmatrix}
+                \dpdiff{w}{x} + \phi_x \\
+                \dpdiff{w}{x} + \phi_y
+            \end{Bmatrix}
+        \end{align}
+        \label{eq:strains}
+    }
+\end{subequations}
+%
+\begin{equation}
+    \begin{Bmatrix}
+        N \\
+        M \\
+        Q
+    \end{Bmatrix} =
+    \begin{bmatrix}
+        A & B & 0   \\
+        B & D & 0   \\
+        0 & 0 & A_s
+    \end{bmatrix}
+    \begin{Bmatrix}
+        \epsilon_m \\
+        \epsilon_b \\
+        \epsilon_s
+    \end{Bmatrix}
+    -
+    \begin{Bmatrix}
+        N_T \\
+        M_T \\
+        0
+    \end{Bmatrix}
+    = \hat{C} \hat{\epsilon} - \hat{\Psi}
+    % 
+    \label{eq:stress_resultants}
+\end{equation}
+
+The membrane strain, Eq.~\eqref{eq:membrane_strain}, can be considered as a linear and nonlinear parts
+%
+\begin{equation}
+    {\renewcommand\arraystretch{1.65}
+        \epsilon_m = \epsilon_m^l + \epsilon_m^{nl} =
+        \begin{Bmatrix}
+            \dpdiff{u}{x}                 \\
+            \dpdiff{v}{y}                 \\
+            \dpdiff{u}{y} + \dpdiff{v}{x} \\
+        \end{Bmatrix}} +
+    \begin{Bmatrix}
+        \dfrac{1}{2} \left( \dpdiff{w}{x}\right)^2 \\
+        \dfrac{1}{2} \left(\dpdiff{w}{x}\right)^2  \\
+        \dpdiff{w}{x} \dpdiff{w}{y}                \\
+    \end{Bmatrix}
+\end{equation}
+%
+Furthermore, the strains in Eq.~\eqref{eq:strains} can written as a function of a derivative operators, that is,
+%
+\begin{subequations}
+    \begin{align}
+        \label{eq:linear_membrane_strain_operator}
+        \epsilon_m^l    & =
+        {\renewcommand\arraystretch{1.75}
+        \begin{bmatrix}
+            \dpdiff{ }{x} & 0             & 0 & 0 & 0 \\
+            0             & \dpdiff{ }{y} & 0 & 0 & 0 \\
+            \dpdiff{ }{y} & \dpdiff{ }{x} & 0 & 0 & 0 \\
+        \end{bmatrix}
+        }
+        \begin{Bmatrix}
+            u      \\
+            v      \\
+            w      \\
+            \phi_x \\
+            \phi_y
+        \end{Bmatrix} = \mathcal{L}_m q                         \\
+        %%%
+        \label{eq:nonlinear_membrane_strain_operator}
+        \epsilon_m^{nl} & = \frac{1}{2}
+        {\renewcommand\arraystretch{1.75}
+            \begin{bmatrix}
+                \dpdiff{w}{x} & 0             \\
+                0             & \dpdiff{w}{y} \\
+                \dpdiff{w}{y} & \dpdiff{w}{x} \\
+            \end{bmatrix}
+            \begin{bmatrix}
+                0 & 0 & \dpdiff{ }{x} & 0 & 0 \\
+                0 & 0 & \dpdiff{ }{y} & 0 & 0
+            \end{bmatrix}
+        }
+        \begin{Bmatrix}
+            u      \\
+            v      \\
+            w      \\
+            \phi_x \\
+            \phi_y
+        \end{Bmatrix} = \frac{1}{2} \Theta \mathcal{L}_\theta q \\
+        %%%
+        \label{eq:bending_strain_operator}
+        \epsilon_b      & =
+        {\renewcommand\arraystretch{1.75}
+        \begin{bmatrix}
+            0 & 0 & 0 & \dpdiff{ }{x} & 0               \\
+            0 & 0 & 0 & 0             & \dpdiff{ }{y} & \\
+            0 & 0 & 0 & \dpdiff{ }{y} & \dpdiff{ }{x} &
+        \end{bmatrix}
+        }
+        \begin{Bmatrix}
+            u      \\
+            v      \\
+            w      \\
+            \phi_x \\
+            \phi_y
+        \end{Bmatrix} = \mathcal{L}_b q                         \\
+        %%%
+        \label{eq:shear_strain_operator}
+        \epsilon_s      & =
+        {\renewcommand\arraystretch{1.75}
+        \begin{bmatrix}
+            0 & 0 & \dpdiff{ }{x} & 1 & 0 \\
+            0 & 0 & \dpdiff{ }{y} & 0 & 1 \\
+        \end{bmatrix}
+        }
+        \begin{Bmatrix}
+            u      \\
+            v      \\
+            w      \\
+            \phi_x \\
+            \phi_y
+        \end{Bmatrix} = \mathcal{L}_s q
+    \end{align}
+    \label{eq:strain_operators}
+\end{subequations}
+%
+With exception of Eq.~\eqref{eq:nonlinear_membrane_strain_operator}, that depends on the displacement, the first variation of Eq.~\eqref{eq:strain_operators} has the form:
+%
+\begin{equation}
+    \delta \epsilon_\ast = \mathcal{L}_\ast \delta q
+\end{equation}
+%
+while
+\begin{equation}
+    \delta \epsilon_m^{nl} = \Theta \mathcal{L}_\theta \delta q
+\end{equation}
+
+Now, the virtual internal work can now be written as
+%
+\begin{equation}
+    \delta W^{\text{int}} = \int_\Omega
+    \delta \hat{\epsilon}^T \hat{\sigma}
+    \text{d}\Omega
+    %
+    \label{eq:strain_energy_4}
+\end{equation}
+%
+in which
+%
+\begin{subequations}
+    \begin{align}
+        \delta \hat{\epsilon} & =
+        \begin{bmatrix}
+            \mathcal{L}_m \\
+            \mathcal{L}_b \\
+            \mathcal{L}_s
+        \end{bmatrix} \delta q +
+        \begin{bmatrix}
+            \Theta \mathcal{L}_\theta \\
+            0                         \\
+            0
+        \end{bmatrix} \delta q \\
+        %%%
+        \hat{\sigma}          & =
+        \begin{Bmatrix}
+            N \\
+            M \\
+            Q
+        \end{Bmatrix}
+    \end{align}
+    \label{eq:strain_variation_sigma_hat}
+\end{subequations}
+% 
+The virtual external work can be defined as
+%
+\begin{equation}
+    \delta W^{\text{ext}} = -
+    \left(
+    \int_\Omega \delta q^T f ~ \text{d} \Omega + \delta q^T g
+    \right)
+\end{equation}
+%
+where the first term represents the external load due to loading acting on and area \( \Omega \) and second one the work done by concentrated loading, where \( f \) and \( g \) are the distributed load vector and nodal point load vector, respectively. The PVW may be now defined as
+%
+\begin{equation}
+    \int_\Omega
+    \delta \hat{\epsilon}^T \hat{\sigma}
+    \text{d}\Omega =
+    \int_\Omega \delta q^T f ~ \text{d} \Omega + \sum_j \delta q^j g^j
+    %
+    \label{eq:pvw_2}
+\end{equation}
+
+\subsubsection{Finite element discretization}
+The displacement field within an element, Eq.~\eqref{eq:displacement_vector}, is given by
+%
+\begin{equation}
+    q^\el = \hat{N} \hat{q}^\el
+    %%%
+    \label{eq:nodal_displacement}
+\end{equation}
+%
+where
+% 
+\begin{equation}
+    \hat{N} =
+    \begin{bmatrix}
+        \tilde{N} & \tilde{0} & \tilde{0} & \tilde{0} & \tilde{0} \\
+        \tilde{0} & \tilde{N} & \tilde{0} & \tilde{0} & \tilde{0} \\
+        \tilde{0} & \tilde{0} & \tilde{N} & \tilde{0} & \tilde{0} \\
+        \tilde{0} & \tilde{0} & \tilde{0} & \tilde{N} & \tilde{0} \\
+        \tilde{0} & \tilde{0} & \tilde{0} & \tilde{0} & \tilde{N} \\
+    \end{bmatrix}
+\end{equation}
+%
+in which \(\tilde{N} = [\tilde{N}_1, \tilde{N}_2, \cdots, \tilde{N}_n]\) is the shape functions vector, \(\tilde{0} = [0]_n\) is a null vector with \(n\) elements, in which \(n\) is the number of nodes. The local element displacement vector \(\hat{q}^\el\) is given by
+% 
+\begin{equation}
+    \hat{q}^\el =
+    \begin{Bmatrix}
+        \hat{u}^\el      \\
+        \hat{v}^\el      \\
+        \hat{w}^\el      \\
+        \hat{\phi}_x^\el \\
+        \hat{\phi}_y^\el
+    \end{Bmatrix}
+\end{equation}
+%
+where, for the sake of generality, \( \hat{\gamma} = [\gamma_1, \gamma_2, \cdots, \gamma_n ]^T \) are nodal displacements. Substituting Eq.~\eqref{eq:nodal_displacement} in Eq.~\eqref{eq:pvw_2} yields
+%
+\begin{equation}
+    {\delta \hat{q}^\el}^T
+    \left(
+    \int_{\Omega^\el} {B^\el}^T \hat{\sigma}^\el ~ \text{d}\Omega^\el -
+    \hat{f}^\el
+    \right) = 0
+    %
+    \label{eq:strain_energy_5}
+\end{equation}
+%
+where \( B^\el \) is the strain-displacement matrix
+%
+\begin{equation}
+    B^\el =
+    \begin{bmatrix}
+        B_m \\
+        B_b \\
+        B_s
+    \end{bmatrix} +
+    \begin{bmatrix}
+        \Theta^\el B_\theta \\
+        0                   \\
+        0
+    \end{bmatrix}
+    = B^l + {B^{nl}}^\el
+\end{equation}
+% 
+\( \hat{\sigma}^\el \) is the resultant internal forces
+% 
+\begin{equation}
+    \hat{\sigma}^\el = \hat{C}^\el
+    \left(
+    B^l + \frac{1}{2} {B^{nl}}^\el
+    \right) \hat{q}^\el -
+    \Psi^\el
+    % 
+    \label{eq:sigma_hat_element}
+\end{equation}
+% 
+and \( \hat{f}^\el \) is the equivalent nodal load vector
+% 
+\begin{equation}
+    \hat{f}^\el = \int_{\Omega^\el} \hat{N} f^\el ~ \text{d} \Omega^\el
+\end{equation}
+%
+With regard to Eq.~\eqref{eq:nonlinear_membrane_strain_operator}, one notices that \(\Theta^\el\) depends on the displacement within each element, and so the nonlinear part of the strain-displacement matrix.
+
+The strain-displacement matrix \( B^\el \) is written in terms of its membrane component \( B_m \),
+%
+\begin{equation}
+    {\renewcommand\arraystretch{2.0}
+        B_m =
+        \begin{bmatrix}
+            \dpdiff{\tilde{N}}{x} & 0                     & 0 & 0 & 0 \\
+            0                     & \dpdiff{\tilde{N}}{y} & 0 & 0 & 0 \\
+            \dpdiff{\tilde{N}}{y} & \dpdiff{\tilde{N}}{x} & 0 & 0 & 0 \\
+        \end{bmatrix}
+    }
+\end{equation}
+%
+bending component \(B_b\)
+% 
+\begin{equation}
+    {\renewcommand\arraystretch{2.0}
+        B_b =
+        \begin{bmatrix}
+            0 & 0 & 0 & \dpdiff{\tilde{N}}{x} & 0                     \\
+            0 & 0 & 0 & 0                     & \dpdiff{\tilde{N}}{y} \\
+            0 & 0 & 0 & \dpdiff{\tilde{N}}{y} & \dpdiff{\tilde{N}}{x}
+        \end{bmatrix}
+    }
+\end{equation}
+% 
+shear component \(B_s\)
+% 
+\begin{equation}
+    {\renewcommand\arraystretch{2.0}
+        B_s =
+        \begin{bmatrix}
+            0 & 0 & \dpdiff{\tilde{N}}{x} & N & 0 \\
+            0 & 0 & \dpdiff{\tilde{N}}{y} & 0 & N \\
+        \end{bmatrix}
+    }
+\end{equation}
+%
+and gradient component \(B_\theta\)
+% 
+\begin{equation}
+    {\renewcommand\arraystretch{2.0}
+        B_\theta =
+        \begin{bmatrix}
+            0 & 0 & \dpdiff{\tilde{N}}{x} & 0 & 0 \\
+            0 & 0 & \dpdiff{\tilde{N}}{y} & 0 & 0 \\
+        \end{bmatrix}
+    }
+\end{equation}
+%
+
+Thus, the nonlinear equilibrium equation within the element become
+\begin{equation}
+    \psi^\el =
+    \int_{\Omega^\el} {B^\el}^T \hat{\sigma}^\el ~ \text{d}\Omega^\el -
+    \hat{f}^\el = 0
+    % 
+    \label{eq:residual}
+\end{equation}
+% 
+which is also know as residual. The first term of Eq. \eqref{eq:residual} can be defined as
+% 
+\begin{equation}
+    \int_{\Omega^\el} {B^\el}^T \hat{\sigma}^\el ~ \text{d}\Omega^\el =
+    K^\el \hat{q}^\el - \hat{\Psi}^\el
+\end{equation}
+%
+where \(K^\el\) is the standard stiffness matrix
+% 
+\begin{equation}
+    K^\el = \int_{\Omega^\el}
+    \left( B^l + {B^{nl}}^\el \right)^T \hat{C}^\el \left( B^l + \frac{1}{2} {B^{nl}}^\el \right)
+    ~ \text{d}\Omega^\el
+\end{equation}
+% 
+and \( \hat{\Psi}^\el \) is a thermal load vector
+% 
+\begin{equation}
+    \hat{\Psi}^\el = \int_{\Omega^\el} \left( B^l + {B^{nl}}^\el \right)^T \Psi^\el
+    ~ \text{d}\Omega^\el
+\end{equation}
+
+
+The stiffness matrix can be rewritten as a sum of linear and nonlinear stiffness matrices:
+% 
+\begin{equation}
+    K^\el = {K^l}^\el + {K^{nl}}^\el
+\end{equation}
+% 
+where
+% 
+\begin{equation}
+    \begin{aligned}
+        {K^l}^\el & =
+        \int_{\Omega^\el} B_m^T A^\el B_m ~ \text{d}\Omega^\el +
+        \int_{\Omega^\el} B_m^T B^\el B_b ~ \text{d}\Omega^\el +
+        \int_{\Omega^\el} B_b^T B^\el B_m ~ \text{d}\Omega^\el \\
+                  & +
+        \int_{\Omega^\el} B_b^T D^\el B_b ~ \text{d}\Omega^\el +
+        \int_{\Omega^\el} B_s^T A_s^\el B_s ~ \text{d}\Omega^\el
+    \end{aligned}
+\end{equation}
+% 
+and
+% 
+\begin{equation}
+    \begin{aligned}
+        {K^{nl}}^\el & =
+        \frac{1}{2} \int_{\Omega^\el} B_m^T A^\el \Theta^\el B_\theta ~ \text{d}\Omega^\el +
+        \frac{1}{2} \int_{\Omega^\el} B_b^T B^\el \Theta^\el B_\theta ~ \text{d}\Omega^\el \\
+                     & +
+        \int_{\Omega^\el} B_\theta^T {\Theta^T}^\el A^\el B_m ~ \text{d}\Omega^\el +
+        \int_{\Omega^\el} B_\theta^T {\Theta^T}^\el B^\el B_b ~ \text{d}\Omega^\el         \\
+                     & +
+        \frac{1}{2} \int_{\Omega^\el} B_\theta^T {\Theta^T}^\el A^\el \Theta^\el B_\theta ~ \text{d}\Omega^\el
+    \end{aligned}
+\end{equation}
+% 
+In compact forms, the linear and nonlinear stiffness matrix are given by,
+% 
+\begin{equation}
+    {K^l}^\el =
+    K_{pp}^\el +
+    K_{pb}^\el +
+    K_{bp}^\el +
+    K_{bb}^\el +
+    K_{ss}^\el
+\end{equation}
+% 
+and
+% 
+\begin{equation}
+    {K^{nl}}^\el =
+    \frac{1}{2} K_{p \theta}^\el +
+    \frac{1}{2} K_{b \theta}^\el +
+    K_{\theta p}^\el +
+    K_{\theta b}^\el +
+    \frac{1}{2} K_{\theta \theta}^\el
+\end{equation}
+% 
+respectively. The thermal load vector can be written as
+% 
+\begin{equation}
+    \hat{\Psi}^\el =
+    \int_{\Omega^\el} B_m^T N_T^\el ~ \text{d}\Omega^\el +
+    \int_{\Omega^\el} B_b^T M_T^\el ~ \text{d}\Omega^\el +
+    \int_{\Omega^\el} B_\theta^T {\Theta^T}^\el  N_T^\el ~ \text{d}\Omega^\el
+    % 
+    \label{eq:element_thermal_load}
+\end{equation}
+% 
+The last term of Eq.~\eqref{eq:element_thermal_load} may be rewritten as
+% 
+\begin{equation}
+    \int_{\Omega^\el} B_\theta^T {\Theta^T}^\el  N_T^\el ~ \text{d}\Omega^\el
+    =
+    \left(
+    \int_{\Omega^\el}
+    B_\theta^T
+    {\renewcommand\arraystretch{1.15}
+        \begin{bmatrix}
+            N_T^1 & N_T^3 \\
+            N_T^3 & N_T^2
+        \end{bmatrix}
+    }
+    B_\theta ~ \text{d}\Omega^\el
+    \right) \hat{q}^\el
+    = K_T^\el
+\end{equation}
+% 
+Thus, one may define the thermal load vector as
+% 
+\begin{equation}
+    \hat{\Psi}^\el = \hat{f}^\el_{{N}_T} + \hat{f}^\el_{{M}_T} + K_T^\el
+\end{equation}
+
+The residual can now be rewritten as
+% 
+\begin{equation}
+    \psi^\el = \bar{K}^\el \hat{q}^\el - \bar{f}^\el
+    % 
+    \label{eq:residual_2}
+\end{equation}
+% 
+where \(\bar{K}^\el\) is given by
+% 
+\begin{equation}
+    \bar{K}^\el = {K^l}^\el + {K^{nl}}^\el - K_T^\el
+\end{equation}
+% 
+and
+% 
+\begin{equation}
+    \bar{f}^\el =
+    \hat{f}^\el +
+    \hat{f}^\el_{{N}_T} +
+    \hat{f}^\el_{{M}_T}
+\end{equation}
+
+\subsubsection{Solution to nonlinear equilibrium equations}
+An approximation of the residual (unbalanced forces) may be obtained by equating to zero the linearized Taylor's series expansion of \( \psi^\el\) in the neighborhood of an initial estimate of the total displacement, \( \hat{q}^\el_i \), as
+%
+\begin{equation}
+    \psi^\el ( \hat{q}^\el_{i+1} ) \simeq
+    \psi^\el ( \hat{q}^\el_i ) +
+    T^\el \Delta \hat{q}^\el_{i} = 0
+\end{equation}
+%
+where \( T^\el \) is known as the tangent stiffness matrix. It is evaluated as
+%
+\begin{equation}
+    T^\el = \pdiff{\psi^\el ( \hat{q}^\el_i )}{\hat{q}^\el_i}
+\end{equation}
+%
+The tangent matrix may be written as
+% 
+\begin{equation}
+    {\renewcommand\arraystretch{2.5}
+        T^\el =
+        \begin{bmatrix}
+            \dpdiff{\psi^\el_{1}}{\hat{q}^\el_{1}} & \dpdiff{\psi^\el_{1}}{\hat{q}^\el_{2}} & \cdots & \dpdiff{\psi^\el_{1}}{\hat{q}^\el_{m}} \\
+            \dpdiff{\psi^\el_{2}}{\hat{q}^\el_{1}} & \dpdiff{\psi^\el_{2}}{\hat{q}^\el_{2}} & \cdots & \dpdiff{\psi^\el_{2}}{\hat{q}^\el_{m}} \\
+            \vdots                                 & \vdots                                 & \ddots & \vdots                                 \\
+            \dpdiff{\psi^\el_{m}}{\hat{q}^\el_{1}} & \dpdiff{\psi^\el_{m}}{\hat{q}^\el_{2}} & \cdots & \dpdiff{\psi^\el_{m}}{\hat{q}^\el_{m}} \\
+        \end{bmatrix}
+    }
+\end{equation}
+%
+where \(m\) is the element number of degrees of freedom. For convenience, the tangent matrix is rewritten with respect to Eq.~\eqref{eq:residual} as
+%
+\begin{equation}
+    T^\el = \int_{\Omega^\el}
+    \left(
+    B^\el \pdiff{\hat{\sigma}^\el}{\hat{q}^\el} +
+    \pdiff{B^\el}{\hat{q}^\el} \hat{\sigma}^\el
+    \right)
+    ~ \text{d}\Omega^\el
+    % 
+    \label{eq:tangent_matrix}
+\end{equation}
+%
+The first term of Eq.~\eqref{eq:tangent_matrix} may be rewritten as (see Eq.~\eqref{eq:sigma_hat_element})
+% 
+\begin{equation}
+    \begin{aligned}
+        \int_{\Omega^\el} {B^\el}^T \pdiff{\hat{\sigma}^\el}{\hat{q}^\el} ~ \text{d}\Omega^\el
+         & =
+        \int_{\Omega^\el} {B^\el}^T \hat{C}^\el \pdiff{}{\hat{q}^\el}
+        \left[
+            \left( B^l + \frac{1}{2}{B^{nl}}^\el \right) \hat{q}^\el -
+            \Psi^\el
+        \right] ~ \text{d} \Omega^\el                                      \\
+         & =
+        \int_{\Omega^\el} {B^\el}^T \hat{C}^\el B^\el ~ \text{d}\Omega^\el \\
+         & =
+        {K^l}^\el + {K^{nl_2}}^\el
+    \end{aligned}
+    %
+    \label{eq:first_term_tangent_matrix}
+\end{equation}
+% 
+where 
+% 
+\begin{equation}
+    {K^{nl_2}}^\el = 
+    K_{p \theta}^\el +
+    K_{b \theta}^\el +
+    K_{\theta p}^\el +
+    K_{\theta b}^\el +
+    K_{\theta \theta}^\el
+\end{equation}
+%
+The second term of Eq.~\eqref{eq:tangent_matrix} is written as
+%
+\begin{equation}
+    \begin{aligned}
+        \int_{\Omega^\el} \pdiff{{B^\el}^T}{\hat{q}^\el} \hat{\sigma}^\el ~ \text{d}\Omega^\el
+         & =
+        \int_{\Omega^\el} B_\theta^T \pdiff{{\Theta^\el}^T}{\hat{q}^\el} N^\el ~ \text{d}\Omega^\el \\
+         & =
+        \int_{\Omega^\el} B_\theta^T
+        {\renewcommand\arraystretch{2.0}
+        \begin{bmatrix}
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{x} \right) N^\el_1 +
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{y} \right) N^\el_3 \\
+            % 
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{x} \right) N^\el_3 +
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{y} \right) N^\el_2 
+        \end{bmatrix}} ~ \text{d}\Omega^\el            \\
+         & =
+        \int_{\Omega^\el} B_\theta^T
+        {\renewcommand\arraystretch{1.15}
+        \begin{bmatrix}
+            N^\el_1 & N^\el_3 \\
+            N^\el_3 & N^\el_2
+        \end{bmatrix}
+        \begin{Bmatrix}
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{x} \right) \\
+            \dpdiff{}{\hat{q}^\el} \left( \dpdiff{w^\el}{y} \right)
+        \end{Bmatrix}}
+        ~ \text{d}\Omega^\el
+    \end{aligned}
+    %
+    \label{eq:second_term_tangent_matrix}
+\end{equation}
+% 
+The derivative terms may be evaluated as
+% 
+\begin{equation}
+    \dpdiff{}{\hat{q}^\el_j}
+    \left[
+        \dpdiff{\left(\tilde{N}^\alpha \hat{w}^\el_\alpha\right)}{\lambda}
+        \right] =
+    \begin{cases}
+        \dpdiff{\tilde{N}}{\lambda}, & \text{if} ~ \hat{q}^\el_j = \hat{w}^\el_\alpha \\[10pt]
+        0,                           & \text{otherwise}
+    \end{cases}
+\end{equation}
+% 
+which is the definition of the strain-displacement matrix \(B_\theta\). Thus,
+\begin{equation}
+    \begin{aligned}
+        \int_{\Omega^\el} \pdiff{{B^\el}^T}{\hat{q}^\el} \hat{\sigma}^\el
+         & =
+        \int_{\Omega^\el}
+        B_\theta^T
+        {\renewcommand\arraystretch{1.15}
+        \begin{bmatrix}
+            N^\el_{1} & N^\el_{3} \\
+            N^\el_{3} & N^\el_{2}
+        \end{bmatrix}}
+        B_\theta ~ \text{d}\Omega^\el \\
+         & = {K^\sigma}^\el
+    \end{aligned}
+\end{equation}
+% 
+Finally, the tangent stiffness matrix is given by
+% 
+\begin{equation}
+    T^\el = {K^l}^\el + {K^{nl_2}}^\el + {K^\sigma}^\el
+\end{equation}
+\end{document}
