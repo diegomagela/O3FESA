@@ -2,6 +2,7 @@ build/
 .vscode/
 /*.txt
 src/main.cpp
+mesh/
 maxima/
 python/
 papers/
