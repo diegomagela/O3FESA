@@ -23,6 +23,9 @@ std::string get_material_type(const std::string &input);
 // Return section set name
 std::string get_shell_section_set(const std::string &input);
 
+// Return thermal expansion coefficient type
+std::string get_expansion_type(const std::string &input); 
+
 
 
 #endif // FE_MODEL_IO_H
