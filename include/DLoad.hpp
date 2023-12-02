@@ -19,7 +19,7 @@ public:
 
     // Selectors
     inline std::size_t element_tag() const { return element_tag_; }
-    inline std::size_t load_value() const { return value_; }
+    inline double load_value() const { return value_; }
 
 private:
     std::size_t element_tag_{};
