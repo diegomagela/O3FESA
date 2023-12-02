@@ -36,9 +36,11 @@ public:
     inline std::size_t node_tag() const { return tag_; };
 
     // Return node coordinates
-    inline double get_x() const { return x_; };
-    inline double get_y() const { return y_; };
-    inline double get_z() const { return z_; };
+    inline double get_x() const { return x_; }
+    inline double get_y() const { return y_; }
+    inline double get_z() const { return z_; }
+    inline BoundaryPtr get_boundary() const { return boundary_; }
+    inline CLoadPtr get_cload() const { return cload_; }
 
     bool has_boundary() const;
     bool has_cload() const;
