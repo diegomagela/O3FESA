@@ -68,4 +68,9 @@ inline bool vector_has_element(const std::vector<T> a, const T x)
 //     file << element_stiffness.format(CSVFormat);
 // file.close();
 
+// From std::vector to Eigen::VectorXd
+// std::vector<double> A
+// Eigen::VectorXd B
+// B = Eigen::Map<Eigen::VectorXd>(A.data() , A.size());
+
 #endif // VectorUtil_HPP
