@@ -10,6 +10,8 @@
 #include "DLoad.hpp"
 #include "Node.hpp"
 #include "Section.hpp"
+#include "VectorUtil.hpp"
+#include "Triplet.hpp"
 
 /*
     TODO
@@ -66,8 +68,11 @@ public:
     // Returns the z coordinates of all nodes in the element
     std::vector<double> get_z_coordinates() const;
 
+    // Return elements' nodes objects
+    inline std::vector<NodePtr> get_nodes() const { return nodes_; }
+
     // Returns the tags of all element' nodes
-    std::vector<std::size_t> get_nodes() const;
+    std::vector<std::size_t> get_nodes_tags() const;
 
     // Returns the element local indexes
     std::vector<std::size_t> local_dofs() const;
@@ -94,6 +99,8 @@ public:
     std::vector<double>
     get_displacements(const std::vector<double> &displacements) const;
 
+    std::vector<double> get_displacement() const;
+
     // Return the element's w displacement vector
     // displacements: total displacements
     std::vector<double>
@@ -107,6 +114,12 @@ public:
 
     // Returns the element section
     inline SectionPtr get_section() const { return section_; }
+
+    // Convert dense matrix to triplet format applying boundary conditions
+    std::vector<Triplet> matrix_to_triplet(const Eigen::MatrixXd &matrix) const;
+
+    // Convert dense vector to triplet format applying boundary conditions
+    std::vector<Triplet> vector_to_triplet(const Eigen::VectorXd &vector) const;
 
     // Prints to the console the element information
     void print() const;
@@ -135,12 +148,20 @@ public:
     virtual Eigen::MatrixXd shape_functions_matrix(const double xi,
                                                    const double eta) const = 0;
 
-    // Dense stiffness matrix
+    // Dense linear stiffness matrix
     virtual Eigen::MatrixXd linear_stiffness_matrix() const = 0;
+
+    inline std::vector<Triplet>
+    linear_stiffness_triplet() const
+    {
+        return matrix_to_triplet(linear_stiffness_matrix());
+    }
+
+    // Dense nonlinear stiffness matrix
     virtual Eigen::MatrixXd
     nonlinear_stiffness_matrix(const std::vector<double> &w_e) const = 0;
 
-    //// TESTING
+    // Dense tangent stiffness matrix
     virtual Eigen::MatrixXd
     tangent_stiffness_matrix(const std::vector<double> &q_e) const = 0;
 
@@ -157,8 +178,22 @@ public:
     // Dense pressure load vector
     virtual Eigen::VectorXd pressure_load_vector() const = 0;
 
+    inline std::vector<Triplet>
+    pressure_load_triplet() const
+    {
+        return vector_to_triplet(pressure_load_vector());
+    }
+
     // Dense thermal load vector
     virtual Eigen::VectorXd thermal_load_vector() const = 0;
+
+    inline std::vector<Triplet>
+    thermal_load_triplet() const
+    {
+        return vector_to_triplet(thermal_load_vector());
+    }
+
+    std::vector<Triplet> element_load_triplet() const;
 
     // Friend
     friend std::ostream &operator<<(std::ostream &os, const Element &element);
@@ -181,6 +216,17 @@ private:
     std::vector<double>
     get_local_displacement_by_dof(const std::vector<double> &q_e,
                                   const std::size_t dof) const;
+
+    // Check if the stiffness, or load, degree of freedom (dof) is in the
+    // boundary condition dof.
+    // Zero out all row and column entries that contain any boundary dof.
+    // Set "X" to the diagonal entry.
+    bool check_boundary_dof_vector(const std::vector<std::size_t> &dofs,
+                                   const std::size_t row) const;
+
+    bool check_boundary_dof_matrix(const std::vector<std::size_t> &dofs,
+                                   const std::size_t row,
+                                   const std::size_t col) const;
 
 private:
     std::string type_{};           // Element type

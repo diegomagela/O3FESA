@@ -60,7 +60,7 @@ std::vector<double> Element::get_z_coordinates() const
     return z_coordinates;
 }
 
-std::vector<std::size_t> Element::get_nodes() const
+std::vector<std::size_t> Element::get_nodes_tags() const
 {
     std::vector<std::size_t> tags;
     tags.reserve(n_nodes_);
@@ -74,7 +74,7 @@ std::vector<std::size_t> Element::get_nodes() const
 std::vector<std::size_t> Element::local_dofs() const
 {
     // Element's nodes' tags
-    std::vector<std::size_t> nodes = get_nodes();
+    std::vector<std::size_t> nodes = get_nodes_tags();
 
     std::vector<std::size_t> dofs;
     dofs.reserve(dof_per_node_ * n_nodes_);
@@ -117,7 +117,7 @@ Element::get_local_displacement_by_dof(const std::vector<double> &q_e,
 
 std::vector<std::size_t> Element::global_dofs() const
 {
-    std::vector<std::size_t> nodes = get_nodes();
+    std::vector<std::size_t> nodes = get_nodes_tags();
 
     std::vector<std::size_t> dofs;
     dofs.reserve(dof_per_node_ * n_nodes_);
@@ -159,6 +159,20 @@ std::vector<double> Element::get_displacements(
         element_displacement.push_back(displacements.at(index));
 
     return element_displacement;
+}
+
+std::vector<double> Element::get_displacement() const
+{
+    std::vector<double> displacements;
+    displacements.reserve(total_dof());
+
+    for (auto const &node : get_nodes())
+    {
+        std::vector<double> node_displacement = node.get()->get_displacements();
+        vct::append_vector(displacements, node_displacement);
+    }
+
+    return displacements;
 }
 
 std::vector<double> Element::get_w_displacements(
@@ -218,6 +232,126 @@ std::vector<std::size_t> Element::boundary_dofs() const
     }
 
     return boundary_dofs;
+}
+
+std::vector<Triplet>
+Element::matrix_to_triplet(const Eigen::MatrixXd &matrix) const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> matrix_triplet;
+    matrix_triplet.reserve(estimation_nnz);
+
+    std::vector<std::size_t> element_global_dofs = global_dofs();
+    std::vector<std::size_t> element_local_dofs = local_dofs();
+    std::vector<std::size_t> bc_dofs = boundary_dofs();
+
+    for (std::size_t i = 0; i < total_dof(); ++i)
+    {
+        for (std::size_t j = 0; j < total_dof(); ++j)
+        {
+            // Local indexes
+            std::size_t row_local = element_local_dofs.at(i);
+            std::size_t col_local = element_local_dofs.at(j);
+
+            // Global indexes
+            std::size_t row_global = element_global_dofs.at(i);
+            std::size_t col_global = element_global_dofs.at(j);
+
+            double value = matrix(row_local, col_local);
+
+            if (check_boundary_dof_matrix(bc_dofs, row_global, col_global))
+            {
+                if (row_global == col_global)
+                    value = matrix.mean();
+
+                else
+                    value = 0;
+            }
+
+            if (std::abs(value) > 0)
+            {
+                Triplet t(row_global, col_global, value);
+                matrix_triplet.push_back(t);
+            }
+        }
+    }
+
+    return matrix_triplet;
+}
+
+std::vector<Triplet>
+Element::vector_to_triplet(const Eigen::VectorXd &vector) const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> load;
+    load.reserve(estimation_nnz);
+
+    std::vector<std::size_t> element_global_dofs = global_dofs();
+    std::vector<std::size_t> element_local_dofs = local_dofs();
+    std::vector<std::size_t> bc_dofs = boundary_dofs();
+
+    for (std::size_t i = 0; i < total_dof(); ++i)
+    {
+        // Local index
+        std::size_t row_local = element_local_dofs.at(i);
+
+        // Global index
+        std::size_t row_global = element_global_dofs.at(i);
+
+        double value = vector(row_local);
+
+        if (check_boundary_dof_vector(bc_dofs, row_global))
+            value = 0;
+
+        if (std::abs(value) > 0)
+        {
+            Triplet t(row_global, 0, value);
+            load.push_back(t);
+        }
+    }
+
+    return load;
+}
+
+bool Element::check_boundary_dof_vector(const std::vector<std::size_t> &dofs,
+                                        const std::size_t row) const
+{
+    bool check = false;
+
+    if (vct::vector_has_element(dofs, row))
+        check = true;
+
+    return check;
+}
+
+bool Element::check_boundary_dof_matrix(const std::vector<std::size_t> &dofs,
+                                        const std::size_t row,
+                                        const std::size_t col) const
+{
+    bool check = false;
+
+    if (vct::vector_has_element(dofs, row) or vct::vector_has_element(dofs, col))
+        check = true;
+
+    return check;
+}
+
+std::vector<Triplet> Element::element_load_triplet() const
+{
+    const std::size_t size = pressure_load_triplet().size() +
+                             thermal_load_vector().size();
+
+    std::vector<Triplet> element_load;
+    element_load.reserve(size);
+
+    vct::append_vector(element_load, pressure_load_triplet());
+    vct::append_vector(element_load, thermal_load_triplet());
+
+    return element_load;
 }
 
 std::ostream &operator<<(std::ostream &os, const Element &element)
