@@ -3,6 +3,7 @@
 
 #include "Boundary.hpp"
 #include "CLoad.hpp"
+#include "Dofs.hpp"
 
 #include <cstddef>
 #include <iostream>
@@ -34,6 +35,13 @@ public:
 
     // Selectors
     inline std::size_t node_tag() const { return tag_; };
+    inline std::size_t n_dof() const { return n_dof_; }
+    
+    inline std::vector<double>
+    get_displacements() const { return dofs_.get_displacements(); }
+
+    inline double
+    get_w_displacements() const { return dofs_.get_w_displacement(); }
 
     // Return node coordinates
     inline double get_x() const { return x_; }
@@ -49,17 +57,24 @@ public:
     // Modifiers
     inline void set_boundary(BoundaryPtr boundary) { boundary_ = boundary; };
     inline void set_cload(CLoadPtr cload) { cload_ = cload; }
+    inline void set_dofs(Dofs dofs) { dofs_ = dofs; }
 
     // Friends
     friend std::ostream &operator<<(std::ostream &os, const Node &node);
 
 private:
+    // TODO
+    // How to identify how many dofs the node has?
+    // Considering 5 DOF per node
+    const std::size_t n_dof_ = 5;
+
     const std::size_t tag_{};
     double x_{};
     double y_{};
     double z_{};
     BoundaryPtr boundary_;
     CLoadPtr cload_;
+    Dofs dofs_;
 };
 
 #endif // NODE_H
