@@ -53,11 +53,11 @@ public:
     inline std::size_t n_nodes() const { return node_map.size(); }
     inline std::size_t n_elements() const { return element_map.size(); }
 
-    // TODO 
+    // TODO
     // Considering 5 DOF per node here. If the same node is shared by
     // multiple types of elements, determine how to calculate the total number
     // of DOFs of the model.
-    
+
     const std::size_t n_dof = 5;
     // Return the total number of DOF for the model.
     inline std::size_t total_dof() const { return n_dof * n_nodes(); }
@@ -127,20 +127,19 @@ public: // for debugging purposes
     // boundary condition dof.
     // Zero out all row and column entries that contain any boundary dof.
     // Set "X" to the diagonal entry.
-    bool check_boundary_dof(const std::vector<std::size_t> dofs,
+    bool check_boundary_dof(const std::vector<std::size_t> &dofs,
                             const std::size_t row) const;
 
-    bool check_boundary_dof(const std::vector<std::size_t> dofs,
+    bool check_boundary_dof(const std::vector<std::size_t> &dofs,
                             const std::size_t row,
                             const std::size_t col) const;
 
     //// Assembling
 
     // Stiffness
-    std::vector<Triplet> 
-    linear_stiffness_matrix() const;
+    std::vector<Triplet> linear_stiffness_matrix() const;
 
-    std::vector<Triplet> 
+    std::vector<Triplet>
     nonlinear_stiffness_matrix(const std::vector<double> &solution) const;
 
     std::vector<Triplet>
@@ -162,17 +161,28 @@ public: // for debugging purposes
 
     // Internal force vector
     // F_int = K(U)U
-    std::vector<Triplet> 
+    std::vector<Triplet>
     internal_force_vector(const std::vector<double> &solution) const;
 
     // Residual vector
     // R = K(U)U - F = F_int - F_ext
-    std::vector<Triplet> 
+    std::vector<Triplet>
     residual_vector(const std::vector<double> &solution) const;
 
     //// Solver
     std::vector<double> linear_solver() const;
     std::vector<double> nonlinear_solver() const;
+
+    void update_displacement(
+        const std::vector<double> &displacement_solution) const;
+
+    void output(const std::string &filename) const;
+
+    //// TESTING
+    std::vector<Triplet> linear_stiffness_matrix_test() const;
+    std::vector<Triplet> element_load_vector_test() const;
+
+    std::vector<double>  linear_solver_test() const;
 
     //// Output
     void write_result(const std::vector<double> &solution,

@@ -495,21 +495,21 @@ void FEModel::read_elements()
     }
 }
 
-bool FEModel::check_boundary_dof(const std::vector<std::size_t> dofs,
+bool FEModel::check_boundary_dof(const std::vector<std::size_t> &dofs,
                                  const std::size_t row) const
 {
-    if (vector_has_element(dofs, row))
+    if (vct::vector_has_element(dofs, row))
         return true;
 
     else
         return false;
 }
 
-bool FEModel::check_boundary_dof(const std::vector<std::size_t> dofs,
+bool FEModel::check_boundary_dof(const std::vector<std::size_t> &dofs,
                                  const std::size_t row,
                                  const std::size_t col) const
 {
-    if (vector_has_element(dofs, row) or vector_has_element(dofs, col))
+    if (vct::vector_has_element(dofs, row) or vct::vector_has_element(dofs, col))
         return true;
 
     else
@@ -640,8 +640,8 @@ FEModel::tangent_stiffness_matrix(const std::vector<double> &solution) const
         std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
         std::vector<double> q_e = element.get()->get_displacements(solution);
 
-        Eigen::MatrixXd 
-        element_stiffness = element.get()->tangent_stiffness_matrix(q_e);
+        Eigen::MatrixXd
+            element_stiffness = element.get()->tangent_stiffness_matrix(q_e);
 
         for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
         {
@@ -768,7 +768,7 @@ std::vector<Triplet> FEModel::nodal_load_vector() const
     std::size_t n_nodes = cload_map.size();
 
     // Maximum number of DOF
-    std::size_t n_dof = 6;
+    std::size_t n_dof = 5;
 
     // Estimated number of nonzero entries
     std::size_t estimation_nnz = 0.5 * n_nodes * n_dof;
@@ -901,7 +901,7 @@ std::vector<double> FEModel::linear_solver() const
     solution.resize(X.size());
     Eigen::VectorXd::Map(&solution[0], X.size()) = X;
 
-    std::string filename = "/home/magela/Documents/Python/sol.txt";
+    std::string filename = "../python/sol.txt";
     write_result(solution, filename);
 
     return solution;
@@ -910,24 +910,26 @@ std::vector<double> FEModel::linear_solver() const
 std::vector<double> FEModel::nonlinear_solver() const
 {
     // Initial solution from linear solution
-    std::vector<double> solution_linear = linear_solver();
+    std::vector<double> x0 = linear_solver();
 
-    residual_vector(solution_linear);
-
-    // Fill K and F
-    std::vector<Triplet> K = nonlinear_stiffness_matrix(solution_linear);
+    // Fill T and F
+    std::vector<Triplet> K = tangent_stiffness_matrix(x0);
     Eigen::SparseMatrix<double> sm_K(total_dof(), total_dof());
     sm_K.setFromTriplets(K.begin(), K.end());
 
-    std::vector<Triplet> F = force_vector();
+    std::vector<Triplet> F = residual_vector(x0);
     Eigen::SparseMatrix<double> sm_F(total_dof(), 1);
     sm_F.setFromTriplets(F.begin(), F.end());
 
     // Solve
     Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
     solver.compute(sm_K);
-    Eigen::VectorXd X = solver.solve(sm_F);
-    X = solver.solve(sm_F);
+    Eigen::VectorXd X1 = solver.solve(sm_F);
+    X1 = solver.solve(sm_F);
+
+    Eigen::VectorXd X0 = Eigen::Map<Eigen::VectorXd>(x0.data(), x0.size());
+
+    Eigen::VectorXd X = X0 + X1;
 
     // Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
     // solver.analyzePattern(sm_K);
@@ -943,6 +945,40 @@ std::vector<double> FEModel::nonlinear_solver() const
     write_result(solution, filename);
 
     return solution;
+}
+
+void FEModel::update_displacement(const std::vector<double> &displacement_solution) const
+{
+    // Transfer solution displacements to nodes
+    for (auto const &[tag, node] : node_map)
+    {
+        const std::size_t n_dof = node.get()->n_dof();
+        std::size_t first_index = (tag - 1) * n_dof;
+        std::size_t last_index = first_index + (n_dof - 1);
+
+        std::vector<double> node_displacements =
+            vct::extract_elements(displacement_solution, first_index, last_index);
+
+        Dofs node_dof(node_displacements);
+
+        node.get()->set_dofs(node_dof);
+    }
+}
+
+void FEModel::output(const std::string &filename) const
+{
+    std::ofstream file(filename);
+
+    for(auto const& [tag, node] : node_map)
+    {
+        double x = node.get()->get_x();
+        double y = node.get()->get_y();
+        double w = node.get()->get_w_displacements();
+
+        file << x << ',' << y << ',' << w << '\n';
+    }
+
+    file.close();
 }
 
 void FEModel::write_result(const std::vector<double> &solution,
@@ -988,4 +1024,73 @@ void FEModel::print_elements()
 
     for (const auto &[tag, element] : element_map)
         element.get()->print();
+}
+
+//
+//
+//
+//
+//
+//
+//
+
+std::vector<Triplet> FEModel::linear_stiffness_matrix_test() const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> stiffness;
+    stiffness.reserve(estimation_nnz);
+
+    for (const auto &[tag, element] : element_map)
+    {
+        vct::append_vector(stiffness,
+                           element.get()->linear_stiffness_triplet());
+    }
+
+    return stiffness;
+}
+
+std::vector<Triplet> FEModel::element_load_vector_test() const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> load;
+    load.reserve(estimation_nnz);
+
+    for (const auto &[tag, dload] : dload_map)
+    {
+        ElementPtr element = element_map.at(tag);
+        vct::append_vector(load,
+                           element.get()->element_load_triplet());
+    }
+
+    vct::append_vector(load, nodal_load_vector());
+
+    return load;
+}
+
+std::vector<double> FEModel::linear_solver_test() const
+{
+    std::vector<Triplet> K = linear_stiffness_matrix_test();
+    std::vector<Triplet> F = element_load_vector_test();
+
+    Eigen::SparseMatrix<double> sm_K(total_dof(), total_dof());
+    sm_K.setFromTriplets(K.begin(), K.end());
+
+    Eigen::SparseMatrix<double> sm_F(total_dof(), 1);
+    sm_F.setFromTriplets(F.begin(), F.end());
+
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper | Eigen::Lower> solver;
+    Eigen::VectorXd X = solver.compute(sm_K).solve(sm_F);
+
+    std::vector<double> solution;
+    solution.resize(X.size());
+    Eigen::VectorXd::Map(&solution[0], X.size()) = X;
+
+    update_displacement(solution);
+    output("test.txt");
+
+    return solution;
 }
