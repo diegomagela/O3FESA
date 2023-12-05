@@ -22,11 +22,12 @@ public:
     // Selectors
     inline bool has_boundary() const
     {
-        if(imposed_dofs_.empty())
-            return false;
+        bool bc = true;
 
-        else
-            return true;
+        if (imposed_dofs_.empty())
+            bc = false;
+
+        return bc;
     }
 
     inline std::vector<bool> imposed_dofs() const { return imposed_dofs_; }
