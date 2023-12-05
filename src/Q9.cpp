@@ -502,6 +502,7 @@ Eigen::MatrixXd Q9::nonlinear_stiffness_matrix(const std::vector<double> &w_e) c
 
     Eigen::MatrixXd K_NL = (1.0 / 2.0) * (K_mt + K_tt + K_tb.transpose()) +
                            K_tb + K_mt.transpose() +
+                           linear_stiffness_matrix() +
                            thermal_stiffness_matrix();
 
     return K_NL;
@@ -602,14 +603,6 @@ Q9::tangent_stiffness_matrix(const std::vector<double> &q_e) const
         D16, D26, D66;
 
     Eigen::VectorXd N_T = thermal_force_resultants();
-    // double N_T_xx = N_thermal(0);
-    // double N_T_yy = N_thermal(1);
-    // double N_T_xy = N_thermal(2);
-
-    // Eigen::Matrix2d N_DT;
-
-    // N_DT << N_T_xx, N_T_xy,
-    //         N_T_xy, N_T_yy;
 
     std::vector<double> w_e = get_local_w_displacement(q_e);
 
@@ -629,10 +622,13 @@ Q9::tangent_stiffness_matrix(const std::vector<double> &q_e) const
     Eigen::MatrixXd K_tb = Eigen::MatrixXd::Zero(n_nodes_ * dof_per_node_,
                                                  n_nodes_ * dof_per_node_);
 
-    // Initial stress matrix 
+    // Initial stress matrix
     // K_sigma
     Eigen::MatrixXd K_sg = Eigen::MatrixXd::Zero(n_nodes_ * dof_per_node_,
-                                                    n_nodes_ * dof_per_node_);
+                                                 n_nodes_ * dof_per_node_);
+
+    Eigen::VectorXd d_e =
+        Eigen::Map<const Eigen::VectorXd>(q_e.data(), q_e.size());
 
     for (std::size_t i = 0; i < n_quadrature_points; ++i)
     {
@@ -650,11 +646,12 @@ Q9::tangent_stiffness_matrix(const std::vector<double> &q_e) const
                 strain_displacement_nonlinear_rotation(xi_i, eta_j, w_e);
 
             // In-plane resultant vector
-            Eigen::VectorXd N_vector = A * B_m + B * B_b - N_T;
+            Eigen::VectorXd N_vector =
+                (A * B_m + B * B_b + (1.0 / 2.0) * Theta * B_t) * d_e - N_T;
 
             double N_xx = N_vector(0);
-            double N_yy = N_vector(0);
-            double N_xy = N_vector(0);
+            double N_yy = N_vector(1);
+            double N_xy = N_vector(2);
 
             Eigen::Matrix2d N_sg;
             N_sg << N_xx, N_xy, N_xy, N_yy;
