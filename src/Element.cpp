@@ -6,25 +6,22 @@
 
 bool Element::has_load() const
 {
-    if (dload_)
-        return true;
+    bool load{false};
 
-    else
-        return false;
+    if (dload_)
+        load = true;
+
+    return load;
 }
 
 bool Element::has_thermal_load() const
 {
+    bool thermal_load{false};
+
     if (section_.get()->has_temperature())
-        return true;
+        thermal_load = true;
 
-    else
-        return false;
-}
-
-void Element::print() const
-{
-    std::cout << *this << std::endl;
+    return thermal_load;
 }
 
 std::vector<double> Element::get_x_coordinates() const
@@ -73,9 +70,6 @@ std::vector<std::size_t> Element::get_nodes_tags() const
 
 std::vector<std::size_t> Element::local_dofs() const
 {
-    // Element's nodes' tags
-    std::vector<std::size_t> nodes = get_nodes_tags();
-
     std::vector<std::size_t> dofs;
     dofs.reserve(dof_per_node_ * n_nodes_);
 
@@ -89,30 +83,6 @@ std::vector<std::size_t> Element::local_dofs() const
     }
 
     return dofs;
-}
-
-std::vector<std::size_t> Element::local_dofs_by_dof(std::size_t dof) const
-{
-    std::vector<std::size_t> dofs;
-    dofs.reserve(n_nodes_);
-
-    for (std::size_t i = 0; i < n_nodes_; ++i)
-        dofs.push_back(i * dof_per_node_ + dof);
-
-    return dofs;
-}
-
-std::vector<double>
-Element::get_local_displacement_by_dof(const std::vector<double> &q_e,
-                                       std::size_t dof) const
-{
-    std::vector<double> dof_e;
-    dof_e.reserve(n_nodes_);
-
-    for (const auto &index : local_dofs_by_dof(dof))
-        dof_e.push_back(q_e.at(index));
-
-    return dof_e;
 }
 
 std::vector<std::size_t> Element::global_dofs() const
@@ -134,60 +104,111 @@ std::vector<std::size_t> Element::global_dofs() const
     return dofs;
 }
 
-std::vector<std::size_t> Element::global_dofs_by_dof(const std::size_t dof) const
-{
-    std::vector<std::size_t> global_dofs_vec = global_dofs();
-
-    std::vector<std::size_t> dofs(n_nodes_);
-
-    for (std::size_t i = 0; i < n_nodes_; ++i)
-    {
-        std::size_t index = dof_per_node_ * i + dof;
-        dofs[i] = global_dofs_vec.at(index);
-    }
-
-    return dofs;
-}
-
-std::vector<double> Element::get_displacements(
-    const std::vector<double> &displacements) const
-{
-    std::vector<double> element_displacement;
-    element_displacement.reserve(dof_per_node_ * n_nodes_);
-
-    for (auto const &index : global_dofs())
-        element_displacement.push_back(displacements.at(index));
-
-    return element_displacement;
-}
-
-std::vector<double> Element::get_displacement() const
+std::vector<double> Element::get_u_displacement() const
 {
     std::vector<double> displacements;
-    displacements.reserve(total_dof());
+    displacements.reserve(dof_per_node_);
 
     for (auto const &node : get_nodes())
     {
-        std::vector<double> node_displacement = node.get()->get_displacements();
-        vct::append_vector(displacements, node_displacement);
+        double node_u_displacement = node.get()->get_u_displacements();
+        displacements.push_back(node_u_displacement);
     }
 
     return displacements;
 }
 
-std::vector<double> Element::get_w_displacements(
-    const std::vector<double> &displacements) const
+std::vector<double> Element::get_v_displacement() const
 {
-    std::vector<double> w_displacement;
-    w_displacement.reserve(n_nodes_);
+    std::vector<double> displacements;
+    displacements.reserve(dof_per_node_);
 
-    for (auto const &index : global_dofs_by_dof(2))
-        w_displacement.push_back(displacements.at(index));
+    for (auto const &node : get_nodes())
+    {
+        double node_v_displacement = node.get()->get_v_displacements();
+        displacements.push_back(node_v_displacement);
+    }
 
-    return w_displacement;
+    return displacements;
 }
 
-// Check if element has any node with boundary condition
+std::vector<double> Element::get_w_displacement() const
+{
+    std::vector<double> displacements;
+    displacements.reserve(dof_per_node_);
+
+    for (auto const &node : get_nodes())
+    {
+        double node_w_displacement = node.get()->get_w_displacements();
+        displacements.push_back(node_w_displacement);
+    }
+
+    return displacements;
+}
+
+std::vector<double> Element::get_phi_x_displacement() const
+{
+    std::vector<double> displacements;
+    displacements.reserve(dof_per_node_);
+
+    for (auto const &node : get_nodes())
+    {
+        double node_phi_x_displacement = node.get()->get_phi_x_displacements();
+        displacements.push_back(node_phi_x_displacement);
+    }
+
+    return displacements;
+}
+
+std::vector<double> Element::get_phi_y_displacement() const
+{
+    std::vector<double> displacements;
+    displacements.reserve(dof_per_node_);
+
+    for (auto const &node : get_nodes())
+    {
+        double node_phi_y_displacement = node.get()->get_phi_y_displacements();
+        displacements.push_back(node_phi_y_displacement);
+    }
+
+    return displacements;
+}
+
+std::vector<double> Element::get_displacements() const
+{
+    std::vector<double> displacements{};
+    displacements.reserve(total_dof());
+
+    std::vector<double> u_e = get_u_displacement();
+    std::vector<double> v_e = get_v_displacement();
+    std::vector<double> w_e = get_w_displacement();
+    std::vector<double> phi_x_e = get_phi_x_displacement();
+    std::vector<double> phi_y_e = get_phi_y_displacement();
+
+    // >>>
+    displacements.insert(displacements.end(),
+                         u_e.begin(),
+                         u_e.end());
+
+    displacements.insert(displacements.end(),
+                         v_e.begin(),
+                         v_e.end());
+
+    displacements.insert(displacements.end(),
+                         w_e.begin(),
+                         w_e.end());
+
+    displacements.insert(displacements.end(),
+                         phi_x_e.begin(),
+                         phi_x_e.end());
+
+    displacements.insert(displacements.end(),
+                         phi_y_e.begin(),
+                         phi_y_e.end());
+
+    return displacements;
+}
+
 bool Element::has_boundary_node() const
 {
     bool boundary = false;
@@ -204,7 +225,38 @@ bool Element::has_boundary_node() const
     return boundary;
 }
 
-std::vector<std::size_t> Element::boundary_dofs() const
+std::vector<std::size_t> Element::local_boundary_dofs() const
+{
+    std::vector<std::size_t> boundary_dofs{};
+
+    if (has_boundary_node())
+    {
+        for (std::size_t i = 0; i < n_nodes_; ++i)
+        {
+            NodePtr node = nodes_.at(i);
+
+            if (node.get()->has_boundary())
+            {
+                BoundaryPtr boundary = node.get()->get_boundary();
+
+                for (std::size_t j = 0; j < dof_per_node_; ++j)
+                {
+                    bool has_constraint = boundary.get()->imposed_dofs().at(j);
+
+                    if (has_constraint)
+                    {
+                        std::size_t dof = i * dof_per_node_ + j;
+                        boundary_dofs.push_back(dof);
+                    }
+                }
+            }
+        }
+    }
+
+    return boundary_dofs;
+}
+
+std::vector<std::size_t> Element::global_boundary_dofs() const
 {
     std::vector<std::size_t> boundary_dofs{};
 
@@ -245,7 +297,7 @@ Element::matrix_to_triplet(const Eigen::MatrixXd &matrix) const
 
     std::vector<std::size_t> element_global_dofs = global_dofs();
     std::vector<std::size_t> element_local_dofs = local_dofs();
-    std::vector<std::size_t> bc_dofs = boundary_dofs();
+    std::vector<std::size_t> bc_dofs = global_boundary_dofs();
 
     for (std::size_t i = 0; i < total_dof(); ++i)
     {
@@ -261,10 +313,11 @@ Element::matrix_to_triplet(const Eigen::MatrixXd &matrix) const
 
             double value = matrix(row_local, col_local);
 
-            if (check_boundary_dof_matrix(bc_dofs, row_global, col_global))
+            if (check_boundary_dof_matrix(row_global, col_global))
             {
                 if (row_global == col_global)
-                    value = matrix.mean();
+                    value = 1;
+                // value = matrix.mean();
 
                 else
                     value = 0;
@@ -292,7 +345,7 @@ Element::vector_to_triplet(const Eigen::VectorXd &vector) const
 
     std::vector<std::size_t> element_global_dofs = global_dofs();
     std::vector<std::size_t> element_local_dofs = local_dofs();
-    std::vector<std::size_t> bc_dofs = boundary_dofs();
+    std::vector<std::size_t> bc_dofs = global_boundary_dofs();
 
     for (std::size_t i = 0; i < total_dof(); ++i)
     {
@@ -304,7 +357,7 @@ Element::vector_to_triplet(const Eigen::VectorXd &vector) const
 
         double value = vector(row_local);
 
-        if (check_boundary_dof_vector(bc_dofs, row_global))
+        if (check_boundary_dof_vector(row_global))
             value = 0;
 
         if (std::abs(value) > 0)
@@ -317,41 +370,26 @@ Element::vector_to_triplet(const Eigen::VectorXd &vector) const
     return load;
 }
 
-bool Element::check_boundary_dof_vector(const std::vector<std::size_t> &dofs,
-                                        const std::size_t row) const
+bool Element::check_boundary_dof_vector(const std::size_t row) const
 {
     bool check = false;
 
-    if (vct::vector_has_element(dofs, row))
+    if (vct::vector_has_element(global_boundary_dofs(), row))
         check = true;
 
     return check;
 }
 
-bool Element::check_boundary_dof_matrix(const std::vector<std::size_t> &dofs,
-                                        const std::size_t row,
+bool Element::check_boundary_dof_matrix(const std::size_t row,
                                         const std::size_t col) const
 {
     bool check = false;
 
-    if (vct::vector_has_element(dofs, row) or vct::vector_has_element(dofs, col))
+    if (vct::vector_has_element(global_boundary_dofs(), row) or
+        vct::vector_has_element(global_boundary_dofs(), col))
         check = true;
 
     return check;
-}
-
-std::vector<Triplet> Element::element_load_triplet() const
-{
-    const std::size_t size = pressure_load_triplet().size() +
-                             thermal_load_vector().size();
-
-    std::vector<Triplet> element_load;
-    element_load.reserve(size);
-
-    vct::append_vector(element_load, pressure_load_triplet());
-    vct::append_vector(element_load, thermal_load_triplet());
-
-    return element_load;
 }
 
 std::ostream &operator<<(std::ostream &os, const Element &element)
