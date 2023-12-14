@@ -20,6 +20,8 @@ public:
     Boundary &operator=(Boundary &&) = default;
 
     // Selectors
+
+    // Returns if has any boundary dof
     inline bool has_boundary() const
     {
         bool bc = true;
@@ -30,7 +32,16 @@ public:
         return bc;
     }
 
+    // Returns imposed dofs vector
     inline std::vector<bool> imposed_dofs() const { return imposed_dofs_; }
+
+    // Modifiers
+
+    // Set a new imposed dof 
+    inline void set_imposed_dof(const std::size_t dof)
+    {
+        imposed_dofs_.at(dof) = true;
+    }
 
 private:
     std::size_t node_tag_{};
