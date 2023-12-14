@@ -16,12 +16,12 @@
 /*
     TODO
 
-    For better performance (?), consider storing only a vector of nodes' tags,
-    instead of a vector of Nodes.
+    Is it better consider storing only a vector of nodes' tags, instead of a
+    vector of Nodes? I do not think so, but I must benchmark this.
 
 */
 
-// Base element class for all shell other elements
+// Base element class for all other plate/shell elements
 class Element
 {
 private:
@@ -46,187 +46,88 @@ public:
     Element(Element &&) = default;
     Element &operator=(Element &&) = default;
 
-    //// Selectors
-
-    // Total number of dofs of the element
-    inline std::size_t total_dof() const { return dof_per_node_ * n_nodes_; }
-
-    // Returns if the element has a pressure load
-    bool has_load() const;
-
-    bool has_thermal_load() const;
-
-    // Returns the pressure load value
-    inline double load_value() const { return dload_.get()->load_value(); }
-
-    // Returns the x coordinates of all nodes in the element
-    std::vector<double> get_x_coordinates() const;
-
-    // Returns the y coordinates of all nodes in the element
-    std::vector<double> get_y_coordinates() const;
-
-    // Returns the z coordinates of all nodes in the element
-    std::vector<double> get_z_coordinates() const;
-
-    // Return elements' nodes objects
-    inline std::vector<NodePtr> get_nodes() const { return nodes_; }
-
-    // Returns the tags of all element' nodes
-    std::vector<std::size_t> get_nodes_tags() const;
-
-    // Returns the element local indexes
-    std::vector<std::size_t> local_dofs() const;
-
-    // Returns the element local indexes by dof
-    // u:       1
-    // v:       2
-    // w:       3
-    // phi_x:   4
-    // phi_y:   5
-    std::vector<std::size_t> local_dofs_by_dof(const std::size_t dof) const;
-
-    inline std::vector<double>
-    get_local_w_displacement(const std::vector<double> &q_e) const
-    {
-        return get_local_displacement_by_dof(q_e, 2);
-    }
-
-    // Returns the element global indexes
-    std::vector<std::size_t> global_dofs() const;
-
-    // Return element displacement vector for all dofs
-    // displacements: total displacements
-    std::vector<double>
-    get_displacements(const std::vector<double> &displacements) const;
-
-    std::vector<double> get_displacement() const;
-
-    // Return the element's w displacement vector
-    // displacements: total displacements
-    std::vector<double>
-    get_w_displacements(const std::vector<double> &displacements) const;
-
-    // Return if the any node of the element has a boundary condition
-    bool has_boundary_node() const;
-
-    // Return the global indexes of the boundary conditions in the element
-    std::vector<std::size_t> boundary_dofs() const;
-
-    // Returns the element section
-    inline SectionPtr get_section() const { return section_; }
-
-    // Convert dense matrix to triplet format applying boundary conditions
-    std::vector<Triplet> matrix_to_triplet(const Eigen::MatrixXd &matrix) const;
-
-    // Convert dense vector to triplet format applying boundary conditions
-    std::vector<Triplet> vector_to_triplet(const Eigen::VectorXd &vector) const;
-
-    // Prints to the console the element information
-    void print() const;
-
-    // Modifiers
+    //// Modifiers
 
     inline void set_nodes(std::vector<NodePtr> &nodes) { nodes_ = nodes; }
     inline void set_dload(DLoadPtr dload) { dload_ = dload; }
     inline void set_section(SectionPtr section) { section_ = section; }
 
-    //// Pure virtual functions
+    //// Selectors
 
-    /// Jacobian transformation methods
+    // Inline functions
 
-    virtual std::vector<double> jacobian_matrix(const double xi,
-                                                const double eta) const = 0;
+    // Total number of dofs of the element
+    inline std::size_t total_dof() const { return dof_per_node_ * n_nodes_; }
+    // Returns the pressure load value
+    inline double load_value() const { return dload_.get()->load_value(); }
+    // Return elements' nodes objects
+    inline std::vector<NodePtr> get_nodes() const { return nodes_; }
+    // Returns the element's section
+    inline SectionPtr get_section() const { return section_; }
 
-    virtual double jacobian(const double xi, const double eta) const = 0;
+    // Non-inline functions
 
-    virtual std::vector<double>
-    jacobian_inverse_matrix(const double xi,
-                            const double eta) const = 0;
-
-    // Matrices //
-
-    virtual Eigen::MatrixXd shape_functions_matrix(const double xi,
-                                                   const double eta) const = 0;
-
-    // Dense linear stiffness matrix
-    virtual Eigen::MatrixXd linear_stiffness_matrix() const = 0;
-
-    inline std::vector<Triplet>
-    linear_stiffness_triplet() const
-    {
-        return matrix_to_triplet(linear_stiffness_matrix());
-    }
-
-    // Dense nonlinear stiffness matrix
-    virtual Eigen::MatrixXd
-    nonlinear_stiffness_matrix(const std::vector<double> &w_e) const = 0;
-
-    // Dense tangent stiffness matrix
-    virtual Eigen::MatrixXd
-    tangent_stiffness_matrix(const std::vector<double> &q_e) const = 0;
-
-    // f_int = K^e(d^e)d^e
-    // d_e: total displacement within the element
-    virtual Eigen::VectorXd
-    internal_force(const std::vector<double> &d_e) const = 0;
-
-    // Dense mass matrix
-    // virtual Eigen::MatrixXd mass_matrix() const = 0;
-
-    // Vectors //
-
-    // Dense pressure load vector
-    virtual Eigen::VectorXd pressure_load_vector() const = 0;
-
-    inline std::vector<Triplet>
-    pressure_load_triplet() const
-    {
-        return vector_to_triplet(pressure_load_vector());
-    }
-
-    // Dense thermal load vector
-    virtual Eigen::VectorXd thermal_load_vector() const = 0;
-
-    inline std::vector<Triplet>
-    thermal_load_triplet() const
-    {
-        return vector_to_triplet(thermal_load_vector());
-    }
-
-    std::vector<Triplet> element_load_triplet() const;
-
-    // Friend
-    friend std::ostream &operator<<(std::ostream &os, const Element &element);
-
-private:
-    // Returns the element global indexes according to dof number
-    // u =      0
-    // v =      1
-    // w =      2
-    // phi_x =  3
-    // phi_y =  4
-    std::vector<std::size_t> global_dofs_by_dof(const std::size_t dof) const;
-
-    // Returns the dof element displacement vector
-    // u =      0
-    // v =      1
-    // w =      2
-    // phi_x =  3
-    // phi_y =  4
-    std::vector<double>
-    get_local_displacement_by_dof(const std::vector<double> &q_e,
-                                  const std::size_t dof) const;
-
-    // Check if the stiffness, or load, degree of freedom (dof) is in the
-    // boundary condition dof.
-    // Zero out all row and column entries that contain any boundary dof.
-    // Set "X" to the diagonal entry.
-    bool check_boundary_dof_vector(const std::vector<std::size_t> &dofs,
-                                   const std::size_t row) const;
-
-    bool check_boundary_dof_matrix(const std::vector<std::size_t> &dofs,
-                                   const std::size_t row,
+    // Returns if the element has a pressure load
+    bool has_load() const;
+    // Returns if the element has a temperature gradient
+    bool has_thermal_load() const;
+    // Return if any node of the element has a boundary condition
+    bool has_boundary_node() const;
+    // Returns the x coordinates of all nodes in the element
+    std::vector<double> get_x_coordinates() const;
+    // Returns the y coordinates of all nodes in the element
+    std::vector<double> get_y_coordinates() const;
+    // Returns the z coordinates of all nodes in the element
+    std::vector<double> get_z_coordinates() const;
+    // Return element's w displacement vector for all nodes
+    std::vector<double> get_u_displacement() const;
+    // Return element's w displacement vector for all nodes
+    std::vector<double> get_v_displacement() const;
+    // Return element's w displacement vector for all nodes
+    std::vector<double> get_w_displacement() const;
+    // Return element's w displacement vector for all nodes
+    std::vector<double> get_phi_x_displacement() const;
+    // Return element's w displacement vector for all nodes
+    std::vector<double> get_phi_y_displacement() const;
+    // Return element's displacement vector
+    std::vector<double> get_displacements() const;
+    // Return the global indexes of the boundary conditions in the element
+    std::vector<std::size_t> global_boundary_dofs() const;
+    // Return the local indexes of the boundary conditions in the element
+    std::vector<std::size_t> local_boundary_dofs() const;
+    // Returns the tags of all nodes
+    std::vector<std::size_t> get_nodes_tags() const;
+    // Returns the element local indexes
+    std::vector<std::size_t> local_dofs() const;
+    // Returns the element global indexes
+    std::vector<std::size_t> global_dofs() const;
+    // Convert dense matrix to triplet format applying boundary conditions
+    std::vector<Triplet> matrix_to_triplet(const Eigen::MatrixXd &matrix) const;
+    // Convert dense vector to triplet format applying boundary conditions
+    std::vector<Triplet> vector_to_triplet(const Eigen::VectorXd &vector) const;
+    // Check if dof in a vector has boundary condition
+    bool check_boundary_dof_vector(const std::size_t row) const;
+    // Check if dof in a matrix has boundary condition
+    bool check_boundary_dof_matrix(const std::size_t row,
                                    const std::size_t col) const;
+
+    // Virtual functions
+
+    // Triplet linear stiffness matrix
+    virtual std::vector<Triplet> linear_stiffness_triplet() const = 0;
+    // Triplet linear stiffness matrix
+    virtual std::vector<Triplet> nonlinear_stiffness_triplet() const = 0;
+    // Triplet external load vector
+    virtual std::vector<Triplet> external_load_triplet() const = 0;
+    // Triplet internal load vector: K(q)q
+    virtual std::vector<Triplet> internal_load_triplet() const = 0;
+    // Triplet tangent stiffness matrix
+    virtual std::vector<Triplet> tangent_stiffness_triplet() const = 0;
+
+    // Friend functions
+
+    // Friend operator <<
+    friend std::ostream &operator<<(std::ostream &os, const Element &element);
 
 private:
     std::string type_{};           // Element type
