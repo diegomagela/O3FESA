@@ -19,6 +19,11 @@ public:
     inline std::size_t col() const { return col_; }
     inline double value() const { return value_; }
 
+    // Modifiers
+
+    // Set a new value for the matrix element
+    void set_value(double x) { value_ = x; }
+
     friend std::ostream &operator<<(std::ostream &os, const Triplet &triplet);
 
 private:
