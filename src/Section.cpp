@@ -246,9 +246,20 @@ std::vector<double> Section::thermal_force_resultants() const
             double alpha_yy = transformed_thermal_coefficients(theta, thermal_coefficients).at(1);
             double alpha_xy = transformed_thermal_coefficients(theta, thermal_coefficients).at(2);
 
-            N_thermal_xx += (Q_bar_11 * alpha_xx + Q_bar_12 * alpha_yy + Q_bar_16 * alpha_xy) * thickness * delta_T;
-            N_thermal_yy += (Q_bar_12 * alpha_xx + Q_bar_22 * alpha_yy + Q_bar_26 * alpha_xy) * thickness * delta_T;
-            N_thermal_xy += (Q_bar_16 * alpha_xx + Q_bar_26 * alpha_yy + Q_bar_66 * alpha_xy) * thickness * delta_T;
+            N_thermal_xx += (Q_bar_11 * alpha_xx +
+                             Q_bar_12 * alpha_yy +
+                             Q_bar_16 * alpha_xy) *
+                            thickness * delta_T;
+
+            N_thermal_yy += (Q_bar_12 * alpha_xx +
+                             Q_bar_22 * alpha_yy +
+                             Q_bar_26 * alpha_xy) *
+                            thickness * delta_T;
+
+            N_thermal_xy += (Q_bar_16 * alpha_xx +
+                             Q_bar_26 * alpha_yy +
+                             Q_bar_66 * alpha_xy) *
+                            thickness * delta_T;
         }
     }
 
@@ -287,9 +298,23 @@ std::vector<double> Section::thermal_moment_resultants() const
             double alpha_yy = transformed_thermal_coefficients(theta, thermal_coefficients).at(1);
             double alpha_xy = transformed_thermal_coefficients(theta, thermal_coefficients).at(2);
 
-            M_thermal_xx += (1.0 / 2.0) * (Q_bar_11 * alpha_xx + Q_bar_12 * alpha_yy + Q_bar_16 * alpha_xy) * z_b * delta_T;
-            M_thermal_yy += (1.0 / 2.0) * (Q_bar_12 * alpha_xx + Q_bar_22 * alpha_yy + Q_bar_26 * alpha_xy) * z_b * delta_T;
-            M_thermal_xy += (1.0 / 2.0) * (Q_bar_16 * alpha_xx + Q_bar_26 * alpha_yy + Q_bar_66 * alpha_xy) * z_b * delta_T;
+            M_thermal_xx += (1.0 / 2.0) *
+                            (Q_bar_11 * alpha_xx +
+                             Q_bar_12 * alpha_yy +
+                             Q_bar_16 * alpha_xy) *
+                            z_b * delta_T;
+
+            M_thermal_yy += (1.0 / 2.0) *
+                            (Q_bar_12 * alpha_xx +
+                             Q_bar_22 * alpha_yy +
+                             Q_bar_26 * alpha_xy) *
+                            z_b * delta_T;
+
+            M_thermal_xy += (1.0 / 2.0) *
+                            (Q_bar_16 * alpha_xx +
+                             Q_bar_26 * alpha_yy +
+                             Q_bar_66 * alpha_xy) *
+                            z_b * delta_T;
         }
     }
 
