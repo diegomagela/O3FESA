@@ -4,20 +4,22 @@
 
 bool Node::has_boundary() const
 {
-    if (boundary_)
-        return true;
+    bool bc{false};
 
-    else
-        return false;
+    if (boundary_)
+        bc = true;
+
+    return bc;
 }
 
 bool Node::has_cload() const
 {
-    if (cload_)
-        return true;
+    bool load{false};
 
-    else
-        return false;
+    if (cload_)
+        load = true;
+
+    return load;
 }
 
 std::ostream &operator<<(std::ostream &os, const Node &node)

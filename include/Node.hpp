@@ -27,6 +27,7 @@ public:
                                              z_(z){};
 
     // The rule of five
+
     Node() = default;
     Node(Node const &) = default;
     Node &operator=(Node const &) = default;
@@ -34,32 +35,58 @@ public:
     Node &operator=(Node &&) = default;
 
     // Selectors
+
+    // Returns node's tag
     inline std::size_t node_tag() const { return tag_; };
+    // Returns number of degrees of freedom
     inline std::size_t n_dof() const { return n_dof_; }
-    
+    // All dofs displacement at each node
     inline std::vector<double>
     get_displacements() const { return dofs_.get_displacements(); }
-
-    inline double
+    // Node's u displacement
+    inline double 
+    get_u_displacements() const { return dofs_.get_u_displacement(); }
+    // Node's v displacement
+    inline double 
+    get_v_displacements() const { return dofs_.get_v_displacement(); }
+    // Node's w displacement
+    inline double 
     get_w_displacements() const { return dofs_.get_w_displacement(); }
-
-    // Return node coordinates
+    // Node's phi_x displacement
+    inline double 
+    get_phi_x_displacements() const { return dofs_.get_phi_x_displacement(); }
+    // Node's phi_y displacement
+    inline double 
+    get_phi_y_displacements() const { return dofs_.get_phi_y_displacement(); }
+    // Returns x coordinate
     inline double get_x() const { return x_; }
+    // Returns y coordinate
     inline double get_y() const { return y_; }
+    // Returns z coordinate
     inline double get_z() const { return z_; }
+    // Returns Boundary class pointer
     inline BoundaryPtr get_boundary() const { return boundary_; }
+    // Returns CLoad class pointer
     inline CLoadPtr get_cload() const { return cload_; }
-
+    // Returns if node has boundary dof
     bool has_boundary() const;
+    // Returns if node has concentrated load
     bool has_cload() const;
+    // Print node data
     void print() const;
 
     // Modifiers
+
+    // Set Boundary class pointer to node
     inline void set_boundary(BoundaryPtr boundary) { boundary_ = boundary; };
+    // Set CLoad class pointer to node
     inline void set_cload(CLoadPtr cload) { cload_ = cload; }
+    // Set Dofs class to node
     inline void set_dofs(Dofs dofs) { dofs_ = dofs; }
 
     // Friends
+
+    // Friend operator<< for printing data
     friend std::ostream &operator<<(std::ostream &os, const Node &node);
 
 private:
