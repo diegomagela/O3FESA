@@ -9,13 +9,9 @@
 #include <fstream>
 #include <stdexcept>
 
-// TODO
-//
-// 1) Ignore comment lines in input file
-// 2) Be sure that keywords match exactly
-
 void FEModel::read_input()
 {
+    const auto start{std::chrono::high_resolution_clock::now()};
     std::cout << "Reading input file...";
 
     read_boundary();
@@ -27,7 +23,11 @@ void FEModel::read_input()
     read_dload();
     read_elements();
 
-    std::cout << " done!" << '\n';
+    const auto end{std::chrono::high_resolution_clock::now()};
+    const std::chrono::duration<double> elapsed_seconds{end - start};
+
+    std::cout << "done! "
+              << "[" << elapsed_seconds << " s]" << std::endl;
 }
 
 void FEModel::read_boundary()
@@ -61,18 +61,32 @@ void FEModel::read_boundary()
                 std::size_t node_tag = std::stoul(boundary_str.at(0));
                 std::string named_constraint = boundary_str.at(1);
 
-                BoundaryPtr boundary; // empty declaration to fill map outside conditional
-
-                if (named_constraint.compare("ENCASTRE") == 0)
+                if (!boundary_map.contains(node_tag))
                 {
-                    // For better readability, vector is filled with zeros.
-                    std::fill(imposed_values.begin(), imposed_values.end(), 0.0);
-                    std::fill(imposed_dofs.begin(), imposed_dofs.end(), true);
+                    BoundaryPtr boundary{}; // empty declaration to fill map outside conditional
 
-                    boundary = std::make_shared<Boundary>(node_tag, imposed_dofs, imposed_values);
+                    if (named_constraint.compare("ENCASTRE") == 0)
+                    {
+                        // For better readability, vector is filled with zeros.
+                        std::fill(imposed_values.begin(), imposed_values.end(), 0.0);
+                        std::fill(imposed_dofs.begin(), imposed_dofs.end(), true);
+
+                        boundary = std::make_shared<Boundary>(node_tag, imposed_dofs, imposed_values);
+                        boundary_map.emplace(node_tag, boundary);
+                    }
+
+                    else
+                    {
+                        std::size_t boundary_dof = std::stoul(boundary_str.at(1));
+                        imposed_dofs.at(boundary_dof - 1) = true;
+
+                        boundary = std::make_shared<Boundary>(node_tag, imposed_dofs, imposed_values);
+                        boundary_map.emplace(node_tag, boundary);
+                    }
                 }
 
-                boundary_map.emplace(node_tag, boundary);
+                else
+                    boundary_map[node_tag].get()->set_imposed_dof(std::stoul(named_constraint) - 1);
             }
         }
 
@@ -454,7 +468,6 @@ void FEModel::read_elements()
                 std::size_t element_tag = std::stoul(element_str.at(0));
 
                 std::vector<NodePtr> element_nodes{};
-                NodePtr node_ptr{};
 
                 // Looping starting from the second element, as the first one is the
                 // element tag
@@ -463,7 +476,7 @@ void FEModel::read_elements()
                     std::string node_tag_str = element_str.at(i);
                     std::size_t node_tag = std::stoul(node_tag_str);
 
-                    node_ptr = node_map[node_tag];
+                    NodePtr node_ptr = node_map[node_tag];
 
                     element_nodes.push_back(node_ptr);
                 }
@@ -493,273 +506,6 @@ void FEModel::read_elements()
         if (input.eof())
             find = true;
     }
-}
-
-bool FEModel::check_boundary_dof(const std::vector<std::size_t> &dofs,
-                                 const std::size_t row) const
-{
-    if (vct::vector_has_element(dofs, row))
-        return true;
-
-    else
-        return false;
-}
-
-bool FEModel::check_boundary_dof(const std::vector<std::size_t> &dofs,
-                                 const std::size_t row,
-                                 const std::size_t col) const
-{
-    if (vct::vector_has_element(dofs, row) or vct::vector_has_element(dofs, col))
-        return true;
-
-    else
-        return false;
-}
-
-// =================================
-// GLOBAL MODEL MATRICES AND VECTORS
-// =================================
-
-std::vector<Triplet> FEModel::linear_stiffness_matrix() const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> stiffness;
-    stiffness.reserve(estimation_nnz);
-
-    for (const auto &[tag, element] : element_map)
-    {
-        std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-        std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-        std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-        Eigen::MatrixXd element_stiffness = element.get()->linear_stiffness_matrix();
-
-        for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-        {
-            for (std::size_t j = 0; j < element.get()->total_dof(); ++j)
-            {
-                // Local indexes
-                std::size_t row_local = element_local_dofs.at(i);
-                std::size_t col_local = element_local_dofs.at(j);
-
-                // Global indexes
-                std::size_t row_global = element_global_dofs.at(i);
-                std::size_t col_global = element_global_dofs.at(j);
-
-                double value = element_stiffness(row_local, col_local);
-
-                if (check_boundary_dof(boundary_dofs, row_global, col_global))
-                {
-                    if (row_global == col_global)
-                        value = element_stiffness.mean();
-
-                    else
-                        value = 0;
-                }
-
-                if (std::abs(value) > 0)
-                {
-                    Triplet t(row_global, col_global, value);
-                    stiffness.push_back(t);
-                }
-            }
-        }
-    }
-
-    return stiffness;
-}
-
-std::vector<Triplet> FEModel::nonlinear_stiffness_matrix(const std::vector<double> &solution) const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> stiffness;
-    stiffness.reserve(estimation_nnz);
-
-    for (const auto &[tag, element] : element_map)
-    {
-        std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-        std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-        std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-        std::vector<double> w_e = element.get()->get_w_displacements(solution);
-
-        Eigen::MatrixXd element_stiffness =
-            element.get()->nonlinear_stiffness_matrix(w_e) +
-            element.get()->linear_stiffness_matrix();
-
-        for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-        {
-            for (std::size_t j = 0; j < element.get()->total_dof(); ++j)
-            {
-                // Local indexes
-                std::size_t row_local = element_local_dofs.at(i);
-                std::size_t col_local = element_local_dofs.at(j);
-
-                // Global indexes
-                std::size_t row_global = element_global_dofs.at(i);
-                std::size_t col_global = element_global_dofs.at(j);
-
-                double value = element_stiffness(row_local, col_local);
-
-                if (check_boundary_dof(boundary_dofs, row_global, col_global))
-                {
-                    if (row_global == col_global)
-                        value = 1; // >>> CHANGE
-
-                    else
-                        value = 0;
-                }
-
-                if (std::abs(value) > 0)
-                {
-                    Triplet t(row_global, col_global, value);
-                    stiffness.push_back(t);
-                }
-            }
-        }
-    }
-
-    return stiffness;
-}
-
-std::vector<Triplet>
-FEModel::tangent_stiffness_matrix(const std::vector<double> &solution) const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> stiffness;
-    stiffness.reserve(estimation_nnz);
-
-    for (const auto &[tag, element] : element_map)
-    {
-        std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-        std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-        std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-        std::vector<double> q_e = element.get()->get_displacements(solution);
-
-        Eigen::MatrixXd
-            element_stiffness = element.get()->tangent_stiffness_matrix(q_e);
-
-        for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-        {
-            for (std::size_t j = 0; j < element.get()->total_dof(); ++j)
-            {
-                // Local indexes
-                std::size_t row_local = element_local_dofs.at(i);
-                std::size_t col_local = element_local_dofs.at(j);
-
-                // Global indexes
-                std::size_t row_global = element_global_dofs.at(i);
-                std::size_t col_global = element_global_dofs.at(j);
-
-                double value = element_stiffness(row_local, col_local);
-
-                if (check_boundary_dof(boundary_dofs, row_global, col_global))
-                {
-                    if (row_global == col_global)
-                        value = 1; // >>> CHANGE
-
-                    else
-                        value = 0;
-                }
-
-                if (std::abs(value) > 0)
-                {
-                    Triplet t(row_global, col_global, value);
-                    stiffness.push_back(t);
-                }
-            }
-        }
-    }
-
-    return stiffness;
-}
-
-std::vector<Triplet> FEModel::element_pressure_load_vector() const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> pressure_load;
-    pressure_load.reserve(estimation_nnz);
-
-    for (const auto &[tag, dload] : dload_map)
-    {
-        ElementPtr element = element_map.at(tag);
-
-        std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-        std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-        std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-        Eigen::VectorXd load_vector = element.get()->pressure_load_vector();
-
-        for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-        {
-            // Local index
-            std::size_t row_local = element_local_dofs.at(i);
-
-            // Global index
-            std::size_t row_global = element_global_dofs.at(i);
-
-            double value = load_vector(row_local);
-
-            if (check_boundary_dof(boundary_dofs, row_global))
-                value = 0;
-
-            if (std::abs(value) > 0)
-            {
-                Triplet t(row_global, 0, value);
-                pressure_load.push_back(t);
-            }
-        }
-    }
-
-    return pressure_load;
-}
-
-std::vector<Triplet> FEModel::element_thermal_load_vector() const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> thermal_load;
-    thermal_load.reserve(estimation_nnz);
-
-    for (const auto &[tag, element] : element_map)
-    {
-        if (element.get()->has_thermal_load())
-        {
-
-            std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-            std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-            std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-            Eigen::VectorXd load_vector = element.get()->thermal_load_vector();
-
-            for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-            {
-                // Local index
-                std::size_t row_local = element_local_dofs.at(i);
-
-                // Global index
-                std::size_t row_global = element_global_dofs.at(i);
-
-                double value = load_vector(row_local);
-
-                if (check_boundary_dof(boundary_dofs, row_global))
-                    value = 0;
-
-                if (std::abs(value) > 0)
-                {
-                    Triplet t(row_global, 0, value);
-                    thermal_load.push_back(t);
-                }
-            }
-        }
-    }
-
-    return thermal_load;
 }
 
 std::vector<Triplet> FEModel::nodal_load_vector() const
@@ -793,158 +539,188 @@ std::vector<Triplet> FEModel::nodal_load_vector() const
     return nodal_load;
 }
 
-std::vector<Triplet> FEModel::force_vector() const
-{
-    std::vector<Triplet> element_pressure_load = element_pressure_load_vector();
-    std::vector<Triplet> nodal_load = nodal_load_vector();
-    std::vector<Triplet> element_thermal_load = element_thermal_load_vector();
-
-    const std::size_t size = element_pressure_load.size() +
-                             nodal_load.size() +
-                             element_thermal_load.size();
-
-    std::vector<Triplet> force_vector;
-    force_vector.reserve(size);
-
-    // Concatenate element and nodal loading vectors
-
-    force_vector = nodal_load;
-
-    force_vector.insert(force_vector.end(),
-                        element_pressure_load.begin(),
-                        element_pressure_load.end());
-
-    force_vector.insert(force_vector.end(),
-                        element_thermal_load.begin(),
-                        element_thermal_load.end());
-
-    return force_vector;
-}
-
-std::vector<Triplet> FEModel::internal_force_vector(const std::vector<double> &solution) const
+std::vector<Triplet> FEModel::external_load_vector() const
 {
     // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.5 * total_dof();
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    // >>>
+
+    std::vector<Triplet> external_load{};
+    external_load.reserve(estimation_nnz);
+
+    for (const auto &[tag, element] : element_map)
+    {
+        std::vector<Triplet> f_ext = element.get()->external_load_triplet();
+
+        external_load.insert(external_load.end(),
+                             f_ext.begin(),
+                             f_ext.end());
+    }
+
+    std::vector<Triplet> f_nodal = nodal_load_vector();
+
+    external_load.insert(external_load.end(),
+                         f_nodal.begin(),
+                         f_nodal.end());
+
+    return external_load;
+}
+
+std::vector<Triplet> FEModel::linear_stiffness_matrix() const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> stiffness_matrix{};
+    stiffness_matrix.reserve(estimation_nnz);
+
+    for (const auto &[tag, element] : element_map)
+    {
+        std::vector<Triplet> k_linear =
+            element.get()->linear_stiffness_triplet();
+
+        stiffness_matrix.insert(stiffness_matrix.end(),
+                                k_linear.begin(),
+                                k_linear.end());
+    }
+
+    return stiffness_matrix;
+}
+
+std::vector<Triplet> FEModel::nonlinear_stiffness_matrix() const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
+
+    std::vector<Triplet> stiffness_matrix{};
+    stiffness_matrix.reserve(estimation_nnz);
+
+    for (const auto &[tag, element] : element_map)
+    {
+        std::vector<Triplet> k_nonlinear =
+            element.get()->nonlinear_stiffness_triplet();
+
+        stiffness_matrix.insert(stiffness_matrix.end(),
+                                k_nonlinear.begin(),
+                                k_nonlinear.end());
+    }
+
+    return stiffness_matrix;
+}
+
+std::vector<Triplet> FEModel::internal_force_vector() const
+{
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
 
     std::vector<Triplet> internal_force;
     internal_force.reserve(estimation_nnz);
 
     for (const auto &[tag, element] : element_map)
     {
-        std::vector<std::size_t> element_global_dofs = element.get()->global_dofs();
-        std::vector<std::size_t> element_local_dofs = element.get()->local_dofs();
-        std::vector<std::size_t> boundary_dofs = element.get()->boundary_dofs();
-        std::vector<double> d_e = element.get()->get_displacements(solution);
+        std::vector<Triplet> f_int = element.get()->internal_load_triplet();
 
-        Eigen::VectorXd element_internal_force = element.get()->internal_force(d_e);
-
-        for (std::size_t i = 0; i < element.get()->total_dof(); ++i)
-        {
-            // Local index
-            std::size_t row_local = element_local_dofs.at(i);
-
-            // Global index
-            std::size_t row_global = element_global_dofs.at(i);
-
-            double value = element_internal_force(row_local);
-
-            if (check_boundary_dof(boundary_dofs, row_global))
-                value = 0;
-
-            if (std::abs(value) > 0)
-            {
-                Triplet t(row_global, 0, value);
-                internal_force.push_back(t);
-            }
-        }
+        internal_force.insert(internal_force.end(),
+                              f_int.begin(),
+                              f_int.end());
     }
 
     return internal_force;
 }
 
-std::vector<Triplet>
-FEModel::residual_vector(const std::vector<double> &solution) const
+std::vector<Triplet> FEModel::tangent_stiffness_matrix() const
 {
-    std::vector<Triplet> F_ext = force_vector();
-    std::vector<Triplet> F_int = internal_force_vector(solution);
+    // Estimated number of nonzero entries
+    std::size_t estimation_nnz = 0.2 * total_dof();
 
-    const std::size_t size = F_ext.size() + F_int.size();
-    std::vector<Triplet> residual;
-    residual.reserve(size);
+    std::vector<Triplet> stiffness_matrix{};
+    stiffness_matrix.reserve(estimation_nnz);
 
-    for (auto const &x : F_ext)
+    for (const auto &[tag, element] : element_map)
     {
-        Triplet t(x.row(), x.col(), -1.0 * x.value());
-        residual.push_back(t);
+        std::vector<Triplet> k_tangent =
+            element.get()->tangent_stiffness_triplet();
+
+        stiffness_matrix.insert(stiffness_matrix.end(),
+                                k_tangent.begin(),
+                                k_tangent.end());
     }
 
-    residual.insert(residual.end(), F_int.begin(), F_int.end());
-
-    return residual;
+    return stiffness_matrix;
 }
 
-std::vector<double> FEModel::linear_solver() const
+std::vector<double> FEModel::u_displacements() const
 {
-    std::vector<Triplet> K = linear_stiffness_matrix();
-    std::vector<Triplet> F = force_vector();
+    std::vector<double> u_displacements;
+    u_displacements.reserve(n_nodes());
 
-    Eigen::SparseMatrix<double> sm_K(total_dof(), total_dof());
-    sm_K.setFromTriplets(K.begin(), K.end());
+    for (auto const &[tag, node] : node_map)
+        u_displacements.push_back(node.get()->get_u_displacements());
 
-    Eigen::SparseMatrix<double> sm_F(total_dof(), 1);
-    sm_F.setFromTriplets(F.begin(), F.end());
-
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper | Eigen::Lower> solver;
-    Eigen::VectorXd X = solver.compute(sm_K).solve(sm_F);
-
-    std::vector<double> solution;
-    solution.resize(X.size());
-    Eigen::VectorXd::Map(&solution[0], X.size()) = X;
-
-    std::string filename = "../python/sol.txt";
-    write_result(solution, filename);
-
-    return solution;
+    return u_displacements;
 }
 
-std::vector<double> FEModel::nonlinear_solver() const
+std::vector<double> FEModel::v_displacements() const
 {
-    // Initial solution from linear solution
-    std::vector<double> x0 = linear_solver();
+    std::vector<double> v_displacements;
+    v_displacements.reserve(n_nodes());
 
-    // Fill T and F
-    std::vector<Triplet> K = tangent_stiffness_matrix(x0);
-    Eigen::SparseMatrix<double> sm_K(total_dof(), total_dof());
-    sm_K.setFromTriplets(K.begin(), K.end());
+    for (auto const &[tag, node] : node_map)
+        v_displacements.push_back(node.get()->get_v_displacements());
 
-    std::vector<Triplet> F = residual_vector(x0);
-    Eigen::SparseMatrix<double> sm_F(total_dof(), 1);
-    sm_F.setFromTriplets(F.begin(), F.end());
+    return v_displacements;
+}
 
-    // Solve
-    Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
-    solver.compute(sm_K);
-    Eigen::VectorXd X1 = solver.solve(sm_F);
-    X1 = solver.solve(sm_F);
+std::vector<double> FEModel::w_displacements() const
+{
+    std::vector<double> w_displacements;
+    w_displacements.reserve(n_nodes());
 
-    Eigen::VectorXd X0 = Eigen::Map<Eigen::VectorXd>(x0.data(), x0.size());
+    for (auto const &[tag, node] : node_map)
+        w_displacements.push_back(node.get()->get_w_displacements());
 
-    Eigen::VectorXd X = X0 + X1;
+    return w_displacements;
+}
 
-    // Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
-    // solver.analyzePattern(sm_K);
-    // solver.factorize(sm_K);
-    // Eigen::VectorXd X = solver.solve(sm_F);
+std::vector<double> FEModel::phi_x_displacements() const
+{
+    std::vector<double> phi_x_displacements;
+    phi_x_displacements.reserve(n_nodes());
 
-    // Output solution
-    std::vector<double> solution;
-    solution.resize(X.size());
-    Eigen::VectorXd::Map(&solution[0], X.size()) = X;
+    for (auto const &[tag, node] : node_map)
+        phi_x_displacements.push_back(node.get()->get_phi_x_displacements());
 
-    std::string filename = "/home/magela/Documents/Python/sol_nl_th.txt";
-    write_result(solution, filename);
+    return phi_x_displacements;
+}
 
-    return solution;
+std::vector<double> FEModel::phi_y_displacements() const
+{
+    std::vector<double> phi_y_displacements;
+    phi_y_displacements.reserve(n_nodes());
+
+    for (auto const &[tag, node] : node_map)
+        phi_y_displacements.push_back(node.get()->get_phi_y_displacements());
+
+    return phi_y_displacements;
+}
+
+std::vector<double> FEModel::total_displacements() const
+{
+    std::vector<double> displacements{};
+    displacements.reserve(total_dof());
+
+    for (auto const &[tag, node] : node_map)
+    {
+        std::vector<double> node_displacements =
+            node.get()->get_displacements();
+
+        displacements.insert(displacements.end(),
+                             node_displacements.begin(),
+                             node_displacements.end());
+    }
+
+    return displacements;
 }
 
 void FEModel::update_displacement(const std::vector<double> &displacement_solution) const
@@ -959,6 +735,7 @@ void FEModel::update_displacement(const std::vector<double> &displacement_soluti
         std::vector<double> node_displacements =
             vct::extract_elements(displacement_solution, first_index, last_index);
 
+
         Dofs node_dof(node_displacements);
 
         node.get()->set_dofs(node_dof);
@@ -969,128 +746,186 @@ void FEModel::output(const std::string &filename) const
 {
     std::ofstream file(filename);
 
-    for(auto const& [tag, node] : node_map)
-    {
-        double x = node.get()->get_x();
-        double y = node.get()->get_y();
-        double w = node.get()->get_w_displacements();
-
-        file << x << ',' << y << ',' << w << '\n';
-    }
-
-    file.close();
-}
-
-void FEModel::write_result(const std::vector<double> &solution,
-                           std::string filename) const
-{
-    const std::size_t size = n_nodes();
-
-    std::vector<double> w_disp;
-    w_disp.reserve(size);
-
-    for (std::size_t i = 0; i < size; ++i)
-        w_disp[i] = solution[5 * i + 2];
-
-    std::ofstream file(filename);
-    std::size_t cont = 0;
     for (auto const &[tag, node] : node_map)
     {
         double x = node.get()->get_x();
         double y = node.get()->get_y();
-        double w = w_disp[cont];
+        double z = node.get()->get_z();
+        double u = node.get()->get_u_displacements();
+        double v = node.get()->get_v_displacements();
+        double w = node.get()->get_w_displacements();
+        double phi_x = node.get()->get_phi_x_displacements();
+        double phi_y = node.get()->get_phi_y_displacements();
 
-        ++cont;
-
-        file << x << ',' << y << ',' << w << '\n';
+        file << x << ','
+             << y << ','
+             << z << ','
+             << u << ','
+             << v << ','
+             << w << ','
+             << phi_x << ','
+             << phi_y << '\n';
     }
 
     file.close();
 }
 
-// Public members functions
-
-void FEModel::print_nodes()
+Eigen::SparseMatrix<double>
+FEModel::triplet_to_sparse_vector(const std::vector<Triplet> &triplet) const
 {
-    std::cout << "*NODE" << std::endl;
+    const std::size_t size = total_dof();
+    Eigen::SparseMatrix<double> sparse_vector(size, 1);
+    sparse_vector.setFromTriplets(triplet.begin(), triplet.end());
 
-    for (const auto &[tag, node] : node_map)
-        node.get()->print();
+    return sparse_vector;
 }
 
-void FEModel::print_elements()
+Eigen::SparseMatrix<double>
+FEModel::triplet_to_sparse_matrix(const std::vector<Triplet> &triplet) const
 {
-    std::cout << "*ELEMENT" << '\n';
+    const std::size_t size = total_dof();
+    Eigen::SparseMatrix<double> sparse_matrix(size, size);
+    sparse_matrix.setFromTriplets(triplet.begin(), triplet.end());
 
-    for (const auto &[tag, element] : element_map)
-        element.get()->print();
+    return sparse_matrix;
 }
 
-//
-//
-//
-//
-//
-//
-//
-
-std::vector<Triplet> FEModel::linear_stiffness_matrix_test() const
+std::vector<double>
+FEModel::solver_cg(const Eigen::SparseMatrix<double> &A,
+                   const Eigen::SparseMatrix<double> &b) const
 {
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
+    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper> solver;
 
-    std::vector<Triplet> stiffness;
-    stiffness.reserve(estimation_nnz);
+    Eigen::VectorXd X = solver.compute(A).solve(b);
 
-    for (const auto &[tag, element] : element_map)
+    return vct::eigen_vector_to_std(X);
+}
+
+std::vector<double>
+FEModel::solver_lu(const Eigen::SparseMatrix<double> &A,
+                   const Eigen::SparseMatrix<double> &b) const
+{
+    Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
+
+    solver.analyzePattern(A);
+    solver.factorize(A);
+
+    Eigen::VectorXd X = solver.solve(b);
+
+    return vct::eigen_vector_to_std(X);
+}
+
+void FEModel::linear_solver() const
+{
+    // Assemble stiffness matrix
+    Eigen::SparseMatrix<double> K =
+        triplet_to_sparse_matrix(linear_stiffness_matrix());
+    // Assemble load vector
+    Eigen::SparseMatrix<double> F =
+        triplet_to_sparse_vector(external_load_vector());
+    // Solve linear system
+    std::vector<double> x = solver_lu(K, F);
+    update_displacement(x);
+
+    // Output result linear system
+    const std::string filename = "../python/solution/linear.txt";
+    output(filename);
+}
+
+void FEModel::nonlinear_solver_newton_raphson() const
+{
+    const std::size_t n_steps{12};
+    const double load_increment{1.0 / n_steps};
+    double lambda{load_increment};
+
+    // Calculate residual
+    std::vector<Triplet> external_load = external_load_vector();
+    std::vector<Triplet> internal_load = internal_force_vector();
+    Eigen::SparseVector<double> f_ext = triplet_to_sparse_vector(external_load);
+    Eigen::SparseVector<double> f_int = triplet_to_sparse_vector(internal_load);
+    Eigen::SparseVector<double> residual = load_increment * f_ext + f_int;
+
+    // Calculate tangent matrix
+    std::vector<Triplet> linear_matrix = linear_stiffness_matrix();
+    std::vector<Triplet> tangent_matrix = tangent_stiffness_matrix();
+    Eigen::SparseMatrix<double> k_linear = triplet_to_sparse_matrix(linear_matrix);
+    Eigen::SparseMatrix<double> k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+    Eigen::SparseMatrix<double> k_total = k_tangent + k_linear;
+
+    // Calculate increment
+    std::vector<double> dx = solver_lu(k_total, residual);
+
+    // Update solution
+    Eigen::VectorXd X0 = vct::std_to_eigen_vector(total_displacements());
+    Eigen::VectorXd DX = vct::std_to_eigen_vector(dx);
+    Eigen::VectorXd X1 = X0 + DX;
+    update_displacement(vct::eigen_vector_to_std(X1));
+
+    double error = residual.norm();
+    std::size_t cont{0};
+
+    for (std::size_t n = 0; n < n_steps; ++n)
     {
-        vct::append_vector(stiffness,
-                           element.get()->linear_stiffness_triplet());
+
+        // Recalculate tangent matrix
+        tangent_matrix = tangent_stiffness_matrix();
+        k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+        k_total = k_linear + k_tangent;
+
+        while (error > 1e-2)
+        {
+            // Recalculate tangent matrix
+            // tangent_matrix = tangent_stiffness_matrix();
+            // k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+            // k_total = k_tangent + k_linear;
+
+            // Recalculate residual
+            internal_load = internal_force_vector();
+            f_int = triplet_to_sparse_vector(internal_load);
+            residual = lambda * f_ext + f_int;
+
+            // Calculate increment
+            dx = solver_lu(k_total, residual);
+
+            // Update solution
+            X0 = vct::std_to_eigen_vector(total_displacements());
+            DX = vct::std_to_eigen_vector(dx);
+            X1 = X0 + DX;
+            update_displacement(vct::eigen_vector_to_std(X1));
+
+            // Check residual error
+            error = residual.norm();
+
+            std::cout << "["
+                      << "Load factor: "
+                      << lambda * 100 << "%"
+                      << " | "
+                      << "Step: " << cont
+                      << " | "
+                      << "Residual: " << error
+                      << "]"
+                      << std::endl;
+
+            if (cont > 5)
+            {
+                // Recalculate tangent matrix
+                tangent_matrix = tangent_stiffness_matrix();
+                k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+                k_total = k_tangent + k_linear;
+            }
+
+            ++cont;
+        }
+
+        std::string filename = "../python/solution/nonlinear.txt";
+        output(filename);
+
+        error = 1e3;
+        cont = 0;
+
+        lambda += load_increment;
     }
 
-    return stiffness;
-}
-
-std::vector<Triplet> FEModel::element_load_vector_test() const
-{
-    // Estimated number of nonzero entries
-    std::size_t estimation_nnz = 0.2 * total_dof();
-
-    std::vector<Triplet> load;
-    load.reserve(estimation_nnz);
-
-    for (const auto &[tag, dload] : dload_map)
-    {
-        ElementPtr element = element_map.at(tag);
-        vct::append_vector(load,
-                           element.get()->element_load_triplet());
-    }
-
-    vct::append_vector(load, nodal_load_vector());
-
-    return load;
-}
-
-std::vector<double> FEModel::linear_solver_test() const
-{
-    std::vector<Triplet> K = linear_stiffness_matrix_test();
-    std::vector<Triplet> F = element_load_vector_test();
-
-    Eigen::SparseMatrix<double> sm_K(total_dof(), total_dof());
-    sm_K.setFromTriplets(K.begin(), K.end());
-
-    Eigen::SparseMatrix<double> sm_F(total_dof(), 1);
-    sm_F.setFromTriplets(F.begin(), F.end());
-
-    Eigen::ConjugateGradient<Eigen::SparseMatrix<double>, Eigen::Upper | Eigen::Lower> solver;
-    Eigen::VectorXd X = solver.compute(sm_K).solve(sm_F);
-
-    std::vector<double> solution;
-    solution.resize(X.size());
-    Eigen::VectorXd::Map(&solution[0], X.size()) = X;
-
-    update_displacement(solution);
-    output("test.txt");
-
-    return solution;
+    std::string filename = "../python/solution/nonlinear.txt";
+    output(filename);
 }

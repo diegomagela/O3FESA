@@ -12,7 +12,30 @@
 #include "Material.hpp"
 #include "Node.hpp"
 #include "Section.hpp"
+#include "Time.hpp"
 #include "Triplet.hpp"
+
+/*
+        TODO
+
+        1) How to store all mesh data? Just store the data itself and spread
+           this data for each specific class after reading it or read it and
+           defined all classes at once (currently)?
+
+        2) Use vector, map or unordered map? Need some benchmarks, but unordered
+           map should be the best option here.
+
+        3) Ignore comments in input file
+
+        4) Be sure that keywords match exactly as they should
+
+        Derived class must be a pointer:
+        - Material
+        - Section
+        - Element
+
+        Why consider other classes as pointers as well?
+*/
 
 /*
     TODO
@@ -49,28 +72,28 @@ public:
     FEModel(FEModel &&) = default;
     FEModel &operator=(FEModel &&) = default;
 
-    //// Selectors
-    inline std::size_t n_nodes() const { return node_map.size(); }
-    inline std::size_t n_elements() const { return element_map.size(); }
-
-    // TODO
-    // Considering 5 DOF per node here. If the same node is shared by
-    // multiple types of elements, determine how to calculate the total number
-    // of DOFs of the model.
-
+    // Number of dofs per node
+    // **It is being considered that all nodes have the same number of dofs when
+    // defining the model's total number of dofs. If the model has nodes shared
+    // by different kinds of elements, how to properly calculate the total
+    // number of dofs?
     const std::size_t n_dof = 5;
-    // Return the total number of DOF for the model.
+
+    // Inline function
+
+    // Returns the total number of nodes
+    inline std::size_t n_nodes() const { return node_map.size(); }
+    // Return the total number of elements
+    inline std::size_t n_elements() const { return element_map.size(); }
+    // Return the total number of model's DOF.
     inline std::size_t total_dof() const { return n_dof * n_nodes(); }
 
-    // Read mesh
+    // Read mesh input file
     void read_input();
 
-    void print_nodes();
-    void print_elements();
+public: // Public for debugging purposes, it must be private
+    // Definitions
 
-private:
-    // Smart pointers for defining containers of derived classes and shared
-    // objects
     typedef std::shared_ptr<Boundary> BoundaryPtr;
     typedef std::shared_ptr<CLoad> CLoadPtr;
     typedef std::shared_ptr<Node> NodePtr;
@@ -79,114 +102,106 @@ private:
     typedef std::shared_ptr<DLoad> DLoadPtr;
     typedef std::shared_ptr<Element> ElementPtr;
 
-public: // for debugging purposes
-    const std::string filename_{};
+    // Maps for storing data
 
-    /*
-        TO TEST AND STUDY
-
-        1) How to store all mesh data? Just store the data itself and spread
-           this data for each specific class after reading it or read it and
-           defined all classes at once (currently)?
-
-        2) Use vector, map or unordered map? Need some benchmarks, but unordered
-           map should be the best option here.
-    */
-
-    // NODE TAG, BOUNDARY
+    // Node tag, Boundary object
     std::map<std::size_t, BoundaryPtr> boundary_map{};
-
-    // NODE TAG, CLOAD
+    // Node tag, CLoad object
     std::map<std::size_t, CLoadPtr> cload_map{};
-
-    // NODE TAG, NODE
+    // Node tag, Node object
     std::map<std::size_t, NodePtr> node_map{};
-
-    // MATERIAL NAME, MATERIAL
+    // Material name, Material object
     std::map<std::string, MaterialPtr> material_map{};
-
-    // ELEMENT TAG, DLOAD
+    // Element tag, DLoad object
     std::map<std::size_t, DLoadPtr> dload_map{};
-
-    // ELEMENT SET, SECTION
+    // Element set tag, Section object
     std::map<std::string, SectionPtr> section_map{};
-
-    // ELEMENT TAG, ELEMENT
+    // Element tag, Element object
     std::map<std::size_t, ElementPtr> element_map{};
 
+    // Functions to read keywords from the input file
+
+    // Read Boundary objects from input
     void read_boundary();
+    // Read CLoad objects from input
     void read_cload();
+    // Read Node objects from input
     void read_nodes();
+    // Read Material objects from input
     void read_materials();
-    void read_sections();
-    void read_dload();
-    void read_elements();
+    // Read temperature from input
     void read_temperature();
+    // Read Section objects from input
+    void read_sections();
+    // Read DLoad objects from input
+    void read_dload();
+    // Read Element objects from input
+    void read_elements();
 
-    // Check if the stiffness, or load, degree of freedom (dof) is in the
-    // boundary condition dof.
-    // Zero out all row and column entries that contain any boundary dof.
-    // Set "X" to the diagonal entry.
-    bool check_boundary_dof(const std::vector<std::size_t> &dofs,
-                            const std::size_t row) const;
+    // Selectors
 
-    bool check_boundary_dof(const std::vector<std::size_t> &dofs,
-                            const std::size_t row,
-                            const std::size_t col) const;
-
-    //// Assembling
-
-    // Stiffness
-    std::vector<Triplet> linear_stiffness_matrix() const;
-
-    std::vector<Triplet>
-    nonlinear_stiffness_matrix(const std::vector<double> &solution) const;
-
-    std::vector<Triplet>
-    tangent_stiffness_matrix(const std::vector<double> &solution) const;
-
-    // Force
-
-    // Element distributed loading vector
-    std::vector<Triplet> element_pressure_load_vector() const;
-
-    // Element thermal loading vector
-    std::vector<Triplet> element_thermal_load_vector() const;
-
-    // Nodal force vector
+    // Total nodal force vector
     std::vector<Triplet> nodal_load_vector() const;
+    // Global external load vector
+    std::vector<Triplet> external_load_vector() const;
+    // Global linear stiffness matrix
+    std::vector<Triplet> linear_stiffness_matrix() const;
+    // Global nonlinear stiffness matrix
+    std::vector<Triplet> nonlinear_stiffness_matrix() const;
+    // Global internal load vector
+    std::vector<Triplet> internal_force_vector() const;
+    // Global tangent stiffness matrix
+    std::vector<Triplet> tangent_stiffness_matrix() const;
 
-    // Total force vector
-    std::vector<Triplet> force_vector() const;
+    // Returns model's u displacement
+    std::vector<double> u_displacements() const;
+    // Returns model's v displacement
+    std::vector<double> v_displacements() const;
+    // Returns model's w displacement
+    std::vector<double> w_displacements() const;
+    // Returns model's phi_x displacement
+    std::vector<double> phi_x_displacements() const;
+    // Returns model's phi_y displacement
+    std::vector<double> phi_y_displacements() const;
 
-    // Internal force vector
-    // F_int = K(U)U
-    std::vector<Triplet>
-    internal_force_vector(const std::vector<double> &solution) const;
 
-    // Residual vector
-    // R = K(U)U - F = F_int - F_ext
-    std::vector<Triplet>
-    residual_vector(const std::vector<double> &solution) const;
-
-    //// Solver
-    std::vector<double> linear_solver() const;
-    std::vector<double> nonlinear_solver() const;
-
-    void update_displacement(
-        const std::vector<double> &displacement_solution) const;
-
+    // Returns the total displacements of all nodes and dofs
+    std::vector<double> total_displacements() const;
+    // Receive a solution displacement vector and distributed it to each node
+    void update_displacement(const std::vector<double> &solution) const;
+    // Write out the result to a file
     void output(const std::string &filename) const;
+    // Convert std::vector<Triplet> to Eigen::SparseMatrix<double> vector
+    Eigen::SparseMatrix<double>
+    triplet_to_sparse_vector(const std::vector<Triplet> &triplet) const;
+    // Convert std::vector<Triplet> to Eigen::SparseMatrix<double> matrix
+    Eigen::SparseMatrix<double>
+    triplet_to_sparse_matrix(const std::vector<Triplet> &triplet) const;
+    // CG solver
+    std::vector<double> solver_cg(const Eigen::SparseMatrix<double> &A,
+                                  const Eigen::SparseMatrix<double> &b) const;
+    // LU solver
+    std::vector<double> solver_lu(const Eigen::SparseMatrix<double> &A,
+                                  const Eigen::SparseMatrix<double> &b) const;
 
-    //// TESTING
-    std::vector<Triplet> linear_stiffness_matrix_test() const;
-    std::vector<Triplet> element_load_vector_test() const;
+    // Solvers
 
-    std::vector<double>  linear_solver_test() const;
+    // Linear solver
+    void linear_solver() const;
+    // Nonlinear solvers
+    // - Newton-Raphson
+    void nonlinear_solver_newton_raphson() const;
 
-    //// Output
-    void write_result(const std::vector<double> &solution,
-                      std::string filename) const;
+    // >>>
+    void wait_on_enter() const
+    {
+        std::string dummy;
+        std::cout << "Enter to continue..." << std::endl;
+        std::getline(std::cin, dummy);
+    }
+
+private:
+    const std::string filename_{};
 };
 
 #endif // FE_MODEL_H
