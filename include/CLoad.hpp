@@ -25,6 +25,8 @@ public:
     std::vector<std::size_t> global_dofs() const;
     std::vector<double> load_values() const;
 
+    // Modifiers
+
 private:
     std::size_t node_tag_{};
     std::vector<bool> loading_dofs_{};

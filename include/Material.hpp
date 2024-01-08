@@ -19,10 +19,10 @@ public:
              const std::vector<double> elastic_properties,
              const double density,
              const std::vector<double> thermal_expansion_coefficients) : name_(name),
-                                                            type_(type),
-                                                            elastic_properties_(elastic_properties),
-                                                            density_(density),
-                                                            thermal_expansion_coefficients_(thermal_expansion_coefficients){};
+                                                                         type_(type),
+                                                                         elastic_properties_(elastic_properties),
+                                                                         density_(density),
+                                                                         thermal_expansion_coefficients_(thermal_expansion_coefficients){};
 
     // The rule of five
     Material() = default;

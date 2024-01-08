@@ -101,6 +101,8 @@ public:
     std::vector<std::size_t> local_dofs() const;
     // Returns the element global indexes
     std::vector<std::size_t> global_dofs() const;
+    // Element's strains
+    // std::vector<double> 
     // Convert dense matrix to triplet format applying boundary conditions
     std::vector<Triplet> matrix_to_triplet(const Eigen::MatrixXd &matrix) const;
     // Convert dense vector to triplet format applying boundary conditions

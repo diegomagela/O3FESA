@@ -12,7 +12,9 @@
 void FEModel::read_input()
 {
     const auto start{std::chrono::high_resolution_clock::now()};
-    std::cout << "Reading input file...";
+    std::cout << "[Reading input file";
+
+    // read_step();
 
     read_boundary();
     read_cload();
@@ -26,8 +28,7 @@ void FEModel::read_input()
     const auto end{std::chrono::high_resolution_clock::now()};
     const std::chrono::duration<double> elapsed_seconds{end - start};
 
-    std::cout << "done! "
-              << "[" << elapsed_seconds << " s]" << std::endl;
+    std::cout << " - " << elapsed_seconds << "]" << std::endl;
 }
 
 void FEModel::read_boundary()
@@ -352,7 +353,7 @@ void FEModel::read_sections()
             std::vector<double> thickness_vec{};
             std::vector<std::size_t> nip_vec{};
             std::vector<MaterialPtr> material_vec{};
-            std::vector<int> orientation_vec{};
+            std::vector<double> orientation_vec{};
 
             double thickness{};
             std::size_t nip{};
@@ -486,8 +487,8 @@ void FEModel::read_elements()
                 if (element_type == "Q9")
                     element = std::make_shared<Q9>(element_tag);
 
-                // if (element_type == "Q4")
-                //     element = std::make_unique<Q4>(element_tag);
+                if (element_type == "Q4")
+                    element = std::make_unique<Q4>(element_tag);
 
                 // Set element's nodes
                 element.get()->set_nodes(element_nodes);
@@ -505,6 +506,39 @@ void FEModel::read_elements()
 
         if (input.eof())
             find = true;
+    }
+}
+
+void FEModel::read_step()
+{
+    // Input stream
+    std::fstream input(filename_);
+
+    // String to receive each files's line when reading it
+    std::string line{};
+
+    bool find{false};
+
+    while (!find)
+    {
+        std::getline(input, line);
+
+        if (find_keyword(line, "*STEP"))
+        {
+            std::string analysis_type = get_step_analysis_type(line);
+            std::cout << analysis_type << std::endl;
+
+            // Step step(analysis_type);
+            // step_map.push_back(step);
+
+            read_boundary();
+        }
+
+        if (find_keyword(line, "*END STEP"))
+        {
+            std::cout << "END STEP" << std::endl;
+            find = true;
+        }
     }
 }
 
@@ -543,8 +577,6 @@ std::vector<Triplet> FEModel::external_load_vector() const
 {
     // Estimated number of nonzero entries
     std::size_t estimation_nnz = 0.2 * total_dof();
-
-    // >>>
 
     std::vector<Triplet> external_load{};
     external_load.reserve(estimation_nnz);
@@ -735,7 +767,6 @@ void FEModel::update_displacement(const std::vector<double> &displacement_soluti
         std::vector<double> node_displacements =
             vct::extract_elements(displacement_solution, first_index, last_index);
 
-
         Dofs node_dof(node_displacements);
 
         node.get()->set_dofs(node_dof);
@@ -805,7 +836,9 @@ std::vector<double>
 FEModel::solver_lu(const Eigen::SparseMatrix<double> &A,
                    const Eigen::SparseMatrix<double> &b) const
 {
-    Eigen::SparseLU<Eigen::SparseMatrix<double>, Eigen::COLAMDOrdering<int>> solver;
+    Eigen::SparseLU<Eigen::SparseMatrix<double>,
+                    Eigen::COLAMDOrdering<int>>
+        solver;
 
     solver.analyzePattern(A);
     solver.factorize(A);
@@ -815,14 +848,74 @@ FEModel::solver_lu(const Eigen::SparseMatrix<double> &A,
     return vct::eigen_vector_to_std(X);
 }
 
+std::vector<double> FEModel::solver_qr(const Eigen::SparseMatrix<double> &A,
+                                       const Eigen::SparseMatrix<double> &b) const
+{
+    Eigen::SparseQR<Eigen::SparseMatrix<double>,
+                    Eigen::COLAMDOrdering<int>>
+        solver;
+
+    solver.analyzePattern(A);
+    solver.factorize(A);
+
+    Eigen::VectorXd X = solver.solve(b);
+
+    return vct::eigen_vector_to_std(X);
+}
+
+std::vector<double>
+FEModel::solver_bicgstab(const Eigen::SparseMatrix<double> &A,
+                         const Eigen::SparseMatrix<double> &b) const
+{
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<double>> solver;
+
+    solver.compute(A);
+    Eigen::VectorXd X = solver.solve(b);
+
+    std::cout << "Iterations:      " << solver.iterations() << std::endl;
+    std::cout << "Estimated error: " << solver.error() << std::endl;
+
+    X = solver.solve(b);
+
+    return vct::eigen_vector_to_std(X);
+}
+
 void FEModel::linear_solver() const
 {
     // Assemble stiffness matrix
     Eigen::SparseMatrix<double> K =
         triplet_to_sparse_matrix(linear_stiffness_matrix());
+
     // Assemble load vector
     Eigen::SparseMatrix<double> F =
         triplet_to_sparse_vector(external_load_vector());
+
+    // >>>
+    // Check matrix rank and if it is invertible
+
+    auto stiffness = K.toDense();
+    Eigen::FullPivLU<Eigen::MatrixXd> lu(stiffness);
+    std::string is_invertible{"Not!"};
+    std::string is_symmetric{"Not!"};
+    std::string rank_deficient{"Not!"};
+
+    if (lu.isInvertible())
+        is_invertible = "Yes!";
+
+    if (stiffness.isApprox(stiffness.transpose()))
+        is_symmetric = "Yes!";
+
+    std::cout << "["
+              << "Symmetric: " << is_symmetric
+              << " | "
+              << "Invertible: " << is_invertible
+              << " | "
+              << "Dof: " << total_dof()
+              << " | "
+              << "Rank: " << lu.rank()
+              << "]"
+              << std::endl;
+
     // Solve linear system
     std::vector<double> x = solver_lu(K, F);
     update_displacement(x);
@@ -834,45 +927,92 @@ void FEModel::linear_solver() const
 
 void FEModel::nonlinear_solver_newton_raphson() const
 {
-    const std::size_t n_steps{12};
+    std::ofstream load_displacement{"../python/solution/load_displacement.txt"};
+
+    const std::size_t n_steps{10};
     const double load_increment{1.0 / n_steps};
     double lambda{load_increment};
 
-    // Calculate residual
+    // Constant terms during steps
+
+    // External load F_ext
     std::vector<Triplet> external_load = external_load_vector();
-    std::vector<Triplet> internal_load = internal_force_vector();
     Eigen::SparseVector<double> f_ext = triplet_to_sparse_vector(external_load);
-    Eigen::SparseVector<double> f_int = triplet_to_sparse_vector(internal_load);
-    Eigen::SparseVector<double> residual = load_increment * f_ext + f_int;
 
-    // Calculate tangent matrix
+    // Linear stiffness matrix
     std::vector<Triplet> linear_matrix = linear_stiffness_matrix();
-    std::vector<Triplet> tangent_matrix = tangent_stiffness_matrix();
     Eigen::SparseMatrix<double> k_linear = triplet_to_sparse_matrix(linear_matrix);
-    Eigen::SparseMatrix<double> k_tangent = triplet_to_sparse_matrix(tangent_matrix);
-    Eigen::SparseMatrix<double> k_total = k_tangent + k_linear;
 
-    // Calculate increment
-    std::vector<double> dx = solver_lu(k_total, residual);
-
-    // Update solution
-    Eigen::VectorXd X0 = vct::std_to_eigen_vector(total_displacements());
-    Eigen::VectorXd DX = vct::std_to_eigen_vector(dx);
-    Eigen::VectorXd X1 = X0 + DX;
-    update_displacement(vct::eigen_vector_to_std(X1));
-
-    double error = residual.norm();
-    std::size_t cont{0};
-
-    for (std::size_t n = 0; n < n_steps; ++n)
+    for (std::size_t step = 0; step < n_steps; ++step)
     {
+        std::cout << "["
+                  << "Load factor: "
+                  << lambda * 100 << "%"
+                  << "]"
+                  << std::endl;
+
+        // Calculate residual
+        std::vector<Triplet> internal_load = internal_force_vector();
+        Eigen::SparseVector<double> f_int = triplet_to_sparse_vector(internal_load);
+        Eigen::SparseVector<double> delta_f = lambda * f_ext;
+        Eigen::SparseVector<double> residual = delta_f + f_int;
+        double residual_norm = residual.norm();
+        double residual_error = residual_norm /
+                                std::max(delta_f.norm(), f_int.norm());
+
+        // Calculate tangent matrix
+        std::vector<Triplet> tangent_matrix = tangent_stiffness_matrix();
+        Eigen::SparseMatrix<double> k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+        Eigen::SparseMatrix<double> k_total = k_tangent + k_linear;
+
+        // Calculate displacement increment
+        std::vector<double> dx = solver_lu(k_total, residual);
+
+        // Update solution
+        Eigen::VectorXd X0 = vct::std_to_eigen_vector(total_displacements());
+        Eigen::VectorXd DX = vct::std_to_eigen_vector(dx);
+        Eigen::VectorXd X1 = X0 + DX;
+        update_displacement(vct::eigen_vector_to_std(X1));
+        double displacement_error = (X1 - X0).norm() / X1.norm();
+
+        std::size_t cont{1};
+        std::size_t cont_tan{1};
 
         // Recalculate tangent matrix
         tangent_matrix = tangent_stiffness_matrix();
         k_tangent = triplet_to_sparse_matrix(tangent_matrix);
         k_total = k_linear + k_tangent;
 
-        while (error > 1e-2)
+        // >>>
+        std::cout << "[Tangent norm: " << k_total.norm() << "]" << std::endl;
+
+        // >>>
+        // Check matrix rank and if it is invertible
+
+        // auto stiffness = k_total.toDense();
+        // Eigen::FullPivLU<Eigen::MatrixXd> lu(stiffness);
+        // std::string is_invertible{"Not!"};
+        // std::string is_symmetric{"Not!"};
+        // std::string rank_deficient{"Not!"};
+
+        // if (lu.isInvertible())
+        //     is_invertible = "Yes!";
+
+        // if (stiffness.isApprox(stiffness.transpose()))
+        //     is_symmetric = "Yes!";
+
+        // std::cout << "["
+        //           << "Symmetric: " << is_symmetric
+        //           << " | "
+        //           << "Invertible: " << is_invertible
+        //           << " | "
+        //           << "Dof: " << total_dof()
+        //           << " | "
+        //           << "Rank: " << lu.rank()
+        //           << "]"
+        //           << std::endl;
+
+        while (residual_error > 1E-3 or displacement_error > 1E-3)
         {
             // Recalculate tangent matrix
             // tangent_matrix = tangent_stiffness_matrix();
@@ -882,7 +1022,13 @@ void FEModel::nonlinear_solver_newton_raphson() const
             // Recalculate residual
             internal_load = internal_force_vector();
             f_int = triplet_to_sparse_vector(internal_load);
-            residual = lambda * f_ext + f_int;
+
+            std::cout << "[Internal force norm: " << f_int.norm() << "]" << std::endl;
+
+            residual = delta_f + f_int;
+            residual_norm = residual.norm();
+            residual_error = residual_norm /
+                             std::max(delta_f.norm(), f_int.norm());
 
             // Calculate increment
             dx = solver_lu(k_total, residual);
@@ -892,40 +1038,329 @@ void FEModel::nonlinear_solver_newton_raphson() const
             DX = vct::std_to_eigen_vector(dx);
             X1 = X0 + DX;
             update_displacement(vct::eigen_vector_to_std(X1));
+            displacement_error = (X1 - X0).norm() / X1.norm();
 
-            // Check residual error
-            error = residual.norm();
+            if (std::isnan(displacement_error) or std::isnan(residual_error))
+            {
+                std::cout << "[Solution diverges]" << std::endl;
+                return;
+            }
 
             std::cout << "["
-                      << "Load factor: "
-                      << lambda * 100 << "%"
-                      << " | "
                       << "Step: " << cont
                       << " | "
-                      << "Residual: " << error
+                      << "Displacement error: " << displacement_error
+                      << " | "
+                      << "Residual error: " << residual_error
                       << "]"
                       << std::endl;
 
-            if (cont > 5)
+            if (cont_tan > 3)
             {
-                // Recalculate tangent matrix
+                // Recalculate tangent matrix for better convergence
                 tangent_matrix = tangent_stiffness_matrix();
                 k_tangent = triplet_to_sparse_matrix(tangent_matrix);
                 k_total = k_tangent + k_linear;
+
+                std::cout << "["
+                          << "Recalculating tangent matrix"
+                          << "]"
+                          << std::endl;
+
+                cont_tan = 0;
+
+                // >>>
+                std::cout << "[Tangent norm: " << k_total.norm() << "]" << std::endl;
+                std::cout << "[Internal force norm: " << f_int.norm() << "]" << std::endl;
+
+                // >>>
+                // Check matrix rank and if it is invertible
+
+                // auto stiffness = k_total.toDense();
+                // Eigen::FullPivLU<Eigen::MatrixXd> lu(stiffness);
+                // std::string is_invertible{"Not!"};
+                // std::string is_symmetric{"Not!"};
+                // std::string rank_deficient{"Not!"};
+
+                // if (lu.isInvertible())
+                //     is_invertible = "Yes!";
+
+                // if (stiffness.isApprox(stiffness.transpose()))
+                //     is_symmetric = "Yes!";
+
+                // std::cout << "["
+                //           << "Symmetric: " << is_symmetric
+                //           << " | "
+                //           << "Invertible: " << is_invertible
+                //           << " | "
+                //           << "Dof: " << total_dof()
+                //           << " | "
+                //           << "Rank: " << lu.rank()
+                //           << "]"
+                //           << std::endl;
             }
 
             ++cont;
+            ++cont_tan;
         }
 
         std::string filename = "../python/solution/nonlinear.txt";
         output(filename);
 
-        error = 1e3;
-        cont = 0;
+        std::cout << "[Solution converged]" << std::endl
+                  << std::endl;
+
+        auto w_total = w_displacements();
+        auto W = vct::std_to_eigen_vector(w_total);
+
+        load_displacement << lambda << ',' << W.cwiseAbs().maxCoeff() << '\n';
 
         lambda += load_increment;
-    }
 
-    std::string filename = "../python/solution/nonlinear.txt";
-    output(filename);
+        // wait_on_enter();
+    }
+}
+
+void FEModel::nonlinear_solver_newton_raphson(const std::size_t n_iterations) const
+{
+    std::ofstream load_displacement{"../python/solution/load_displacement.txt"};
+
+    const double load_increment{1.0 / n_iterations};
+    double lambda{load_increment};
+
+    // Constant terms during steps
+
+    // External load F_ext
+    std::vector<Triplet> external_load = external_load_vector();
+    Eigen::SparseVector<double> f_ext = triplet_to_sparse_vector(external_load);
+
+    // Linear stiffness matrix
+    std::vector<Triplet> linear_matrix = linear_stiffness_matrix();
+    Eigen::SparseMatrix<double> k_linear = triplet_to_sparse_matrix(linear_matrix);
+
+    for (std::size_t step = 0; step < n_iterations; ++step)
+    {
+        std::cout << "["
+                  << "Load factor: "
+                  << lambda * 100 << "%"
+                  << "]"
+                  << std::endl;
+
+        // Calculate residual
+        std::vector<Triplet> internal_load = internal_force_vector();
+        Eigen::SparseVector<double> f_int = triplet_to_sparse_vector(internal_load);
+        Eigen::SparseVector<double> delta_f = lambda * f_ext;
+        Eigen::SparseVector<double> residual = delta_f + f_int;
+        double residual_norm = residual.norm();
+        double residual_error = residual_norm /
+                                std::max(delta_f.norm(), f_int.norm());
+
+        // Calculate tangent matrix
+        std::vector<Triplet> tangent_matrix = tangent_stiffness_matrix();
+        Eigen::SparseMatrix<double> k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+        Eigen::SparseMatrix<double> k_total = k_tangent + k_linear;
+
+        // Calculate displacement increment
+        std::vector<double> dx = solver_lu(k_total, residual);
+
+        // Update solution
+        Eigen::VectorXd X0 = vct::std_to_eigen_vector(total_displacements());
+        Eigen::VectorXd DX = vct::std_to_eigen_vector(dx);
+        Eigen::VectorXd X1 = X0 + DX;
+        update_displacement(vct::eigen_vector_to_std(X1));
+        double displacement_error = (X1 - X0).norm() / X1.norm();
+
+        std::size_t cont{1};
+        std::size_t cont_tan{1};
+
+        // Recalculate tangent matrix
+        tangent_matrix = tangent_stiffness_matrix();
+        k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+        k_total = k_linear + k_tangent;
+
+        // >>>
+        // Check matrix rank and if it is invertible
+
+        // auto stiffness = k_total.toDense();
+        // Eigen::FullPivLU<Eigen::MatrixXd> lu(stiffness);
+        // std::string is_invertible{};
+
+        // if (lu.isInvertible())
+        //     is_invertible = "Yes!";
+        // else
+        //     is_invertible = "Not!";
+
+        // std::cout << "["
+        //           << "Is stiffness matrix invertible? " << is_invertible
+        //           << " | "
+        //           << "rank(K) = " << lu.rank()
+        //           << "]"
+        //           << std::endl;
+
+        while (residual_error > 1e-3 or displacement_error > 1e-3)
+        {
+            // Recalculate tangent matrix
+            // tangent_matrix = tangent_stiffness_matrix();
+            // k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+            // k_total = k_tangent + k_linear;
+
+            // Recalculate residual
+            internal_load = internal_force_vector();
+            f_int = triplet_to_sparse_vector(internal_load);
+            residual = delta_f + f_int;
+            residual_norm = residual.norm();
+            residual_error = residual_norm /
+                             std::max(delta_f.norm(), f_int.norm());
+
+            // Calculate increment
+            dx = solver_lu(k_total, residual);
+
+            // Update solution
+            X0 = vct::std_to_eigen_vector(total_displacements());
+            DX = vct::std_to_eigen_vector(dx);
+            X1 = X0 + DX;
+            update_displacement(vct::eigen_vector_to_std(X1));
+            displacement_error = (X1 - X0).norm() / X1.norm();
+
+            std::string filename = "../python/solution/nonlinear_" +
+                                   std::to_string(cont) + ".txt";
+            output(filename);
+
+            if (std::isnan(displacement_error) or std::isnan(residual_error))
+            {
+                std::cout << "[Solution diverges]" << std::endl;
+                return;
+            }
+
+            std::cout << "["
+                      << "Step: " << cont
+                      << " | "
+                      << "Displacement error: " << displacement_error
+                      << " | "
+                      << "Residual error: " << residual_error
+                      << "]"
+                      << std::endl;
+
+            if (cont_tan > 10)
+            {
+                // Recalculate tangent matrix for better convergence
+                tangent_matrix = tangent_stiffness_matrix();
+                k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+                k_total = k_tangent + k_linear;
+
+                std::cout << "["
+                          << "Recalculating tangent matrix"
+                          << "]"
+                          << std::endl;
+
+                cont_tan = 0;
+
+                // >>>
+                // Check matrix rank and if it is invertible
+
+                // auto stiffness = k_total.toDense();
+                // Eigen::FullPivLU<Eigen::MatrixXd> lu(stiffness);
+                // std::string is_invertible{};
+
+                // if (lu.isInvertible())
+                //     is_invertible = "Yes!";
+                // else
+                //     is_invertible = "Not!";
+
+                // std::cout << "["
+                //           << "Is stiffness matrix invertible? " << is_invertible
+                //           << " | "
+                //           << "rank(K) = " << lu.rank()
+                //           << "]"
+                //           << std::endl;
+            }
+
+            ++cont;
+            ++cont_tan;
+        }
+
+        wait_on_enter();
+
+        std::string filename = "../python/solution/nonlinear_" +
+                               std::to_string(cont + 1) + ".txt";
+        output(filename);
+
+        std::cout << "[Solution converged]" << std::endl
+                  << std::endl;
+
+        auto w_total = w_displacements();
+        auto W = vct::std_to_eigen_vector(w_total);
+
+        load_displacement << lambda << ',' << W.cwiseAbs().maxCoeff() << '\n';
+
+        lambda += load_increment;
+
+        // wait_on_enter();
+    }
+}
+
+void FEModel::nonlinear_solver_arc_length() const
+{
+    std::ofstream load_displacement{"../python/solution/load_displacement.txt"};
+
+    // Number of steps
+    const std::size_t n_steps{30};
+
+    // Initial load increment \delta \lambda
+    double delta_lambda{1};
+
+    // Initial displacement
+    Eigen::VectorXd X0 = vct::std_to_eigen_vector(total_displacements());
+
+    // External load
+    std::vector<Triplet> external_load = external_load_vector();
+    Eigen::SparseVector<double> f_ext = triplet_to_sparse_vector(external_load);
+
+    // Linear stiffness matrix
+    std::vector<Triplet> linear_matrix = linear_stiffness_matrix();
+    Eigen::SparseMatrix<double> k_linear = triplet_to_sparse_matrix(linear_matrix);
+
+    // Residual vector
+    std::vector<Triplet> internal_load = internal_force_vector();
+    Eigen::SparseVector<double> f_int = triplet_to_sparse_vector(internal_load);
+    Eigen::SparseVector<double> residual = f_ext + f_int;
+
+    // Tangent matrix
+    std::vector<Triplet> tangent_matrix = tangent_stiffness_matrix();
+    Eigen::SparseMatrix<double> k_tangent = triplet_to_sparse_matrix(tangent_matrix);
+    Eigen::SparseMatrix<double> k_total = k_tangent + k_linear;
+
+    // Solve for u_hat and u_bar
+    Eigen::VectorXd delta_u_hat = vct::std_to_eigen_vector(solver_lu(k_total, f_ext));
+    Eigen::VectorXd delta_u_bar = vct::std_to_eigen_vector(solver_lu(k_total, residual));
+
+    // Compute solution increment and update the solution
+    Eigen::VectorXd delta_u = delta_u_bar + delta_lambda * delta_u_hat;
+    Eigen::VectorXd Delta_u = delta_u;
+    Eigen::VectorXd X = delta_u + X0;
+    update_displacement(vct::eigen_vector_to_std(X));
+
+    // Update load increment
+    double lambda = delta_lambda;
+
+    // Compute the arc-length
+    double Delta_s = delta_lambda * delta_u_hat.norm();
+
+    // Iteration
+
+    // Update external load
+    f_ext *= lambda;
+
+    // Solve for u_hat
+    delta_u_hat = vct::std_to_eigen_vector(solver_lu(k_total, f_ext));
+
+    // Compute incremental load parameter, \delta \lambda, from quadratic equation
+    // a (dl)^2 + b (dl) + c = 0
+
+    double a = delta_u_hat.dot(delta_u_hat);
+    double b = 2.0 * (delta_u_bar + Delta_u).dot(delta_u_hat);
+    double c = (delta_u_bar + Delta_u).dot(delta_u_bar + Delta_u) - Delta_s * Delta_s;
+
+    double delta_lambda_1 = (-b + std::sqrt(b * b - 4 * a * c)) / (2 * a);
+    double delta_lambda_2 = (-b - std::sqrt(b * b - 4 * a * c)) / (2 * a);
 }

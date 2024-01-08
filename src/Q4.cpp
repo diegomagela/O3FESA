@@ -1,23 +1,18 @@
-#include "Q9.hpp"
+#include "Q4.hpp"
 
 #include <fstream>
 
-std::vector<double> Q9::shape_functions(const double xi, const double eta) const
+std::vector<double> Q4::shape_functions(const double xi, const double eta) const
 {
-    double N1 = (1.0 / 4.0) * eta * xi * (eta * xi - eta - xi + 1.0);
-    double N2 = (1.0 / 4.0) * eta * xi * (eta * xi + eta - xi - 1.0);
-    double N3 = (1.0 / 4.0) * eta * xi * (eta * xi + eta + xi + 1.0);
-    double N4 = (1.0 / 4.0) * eta * xi * (eta * xi - eta + xi - 1.0);
-    double N5 = (1.0 / 2.0) * eta * (-eta * xi * xi + eta + xi * xi - 1.0);
-    double N6 = (1.0 / 2.0) * xi * (-eta * eta * xi - eta * eta + xi + 1.0);
-    double N7 = (1.0 / 2.0) * eta * (-eta * xi * xi + eta - xi * xi + 1.0);
-    double N8 = (1.0 / 2.0) * xi * (-eta * eta * xi + eta * eta + xi - 1.0);
-    double N9 = eta * eta * xi * xi - eta * eta - xi * xi + 1.0;
+    double N1 = (1.0 / 4.0) * (1 - xi) * (1 - eta);
+    double N2 = (1.0 / 4.0) * (1 + xi) * (1 - eta);
+    double N3 = (1.0 / 4.0) * (1 + xi) * (1 + eta);
+    double N4 = (1.0 / 4.0) * (1 - xi) * (1 + eta);
 
-    return {N1, N2, N3, N4, N5, N6, N7, N8, N9};
+    return {N1, N2, N3, N4};
 }
 
-Eigen::MatrixXd Q9::shape_functions_matrix(const double xi,
+Eigen::MatrixXd Q4::shape_functions_matrix(const double xi,
                                            const double eta) const
 {
     Eigen::VectorXd N = vct::std_to_eigen_vector(shape_functions(xi, eta));
@@ -34,44 +29,31 @@ Eigen::MatrixXd Q9::shape_functions_matrix(const double xi,
     return shape_functions_matrix;
 }
 
-std::vector<double> Q9::shape_functions_d_xi(const double xi,
+std::vector<double> Q4::shape_functions_d_xi(const double xi,
                                              const double eta) const
 {
     std::vector<double> shape_function_d_xi(n_nodes_);
 
-    double dN1_dxi = (1.0 / 4.0) * eta * (2.0 * eta * xi - eta - 2.0 * xi + 1.0);
-    double dN2_dxi = (1.0 / 4.0) * eta * (2.0 * eta * xi + eta - 2.0 * xi - 1.0);
-    double dN3_dxi = (1.0 / 4.0) * eta * (2.0 * eta * xi + eta + 2.0 * xi + 1.0);
-    double dN4_dxi = (1.0 / 4.0) * eta * (2.0 * eta * xi - eta + 2.0 * xi - 1.0);
-    double dN5_dxi = eta * xi * (1.0 - eta);
-    double dN6_dxi = -eta * eta * xi - 1.0 / 2.0 * eta * eta + xi + 1.0 / 2.0;
-    double dN7_dxi = eta * xi * (-eta - 1.0);
-    double dN8_dxi = -eta * eta * xi + (1.0 / 2.0) * eta * eta + xi - 1.0 / 2.0;
-    double dN9_dxi = 2.0 * xi * (eta * eta - 1.0);
+    double dN1_dxi = (1.0 / 4.0) * (eta - 1);
+    double dN2_dxi = (1.0 / 4.0) * (1 - eta);
+    double dN3_dxi = (1.0 / 4.0) * (eta + 1);
+    double dN4_dxi = (1.0 / 4.0) * (-eta - 1);
 
-    return {dN1_dxi, dN2_dxi, dN3_dxi, dN4_dxi, dN5_dxi, dN6_dxi, dN7_dxi,
-            dN8_dxi, dN9_dxi};
+    return {dN1_dxi, dN2_dxi, dN3_dxi, dN4_dxi};
 }
 
-std::vector<double> Q9::shape_functions_d_eta(const double xi,
+std::vector<double> Q4::shape_functions_d_eta(const double xi,
                                               const double eta) const
 {
-    double dN1_deta = (1.0 / 4.0) * xi * (2.0 * eta * xi - 2.0 * eta - xi + 1.0);
-    double dN2_deta = (1.0 / 4.0) * xi * (2.0 * eta * xi + 2.0 * eta - xi - 1.0);
-    double dN3_deta = (1.0 / 4.0) * xi * (2.0 * eta * xi + 2.0 * eta + xi + 1.0);
-    double dN4_deta = (1.0 / 4.0) * xi * (2.0 * eta * xi - 2.0 * eta + xi - 1.0);
-    double dN5_deta = -eta * xi * xi + eta + (1.0 / 2.0) * xi * xi - 1.0 / 2.0;
-    double dN6_deta = eta * xi * (-xi - 1.0);
-    double dN7_deta = -eta * xi * xi + eta - 1.0 / 2.0 * xi * xi + 1.0 / 2.0;
-    double dN8_deta = eta * xi * (1.0 - xi);
-    double dN9_deta = 2.0 * eta * (xi * xi - 1.0);
+    double dN1_deta = (1.0 / 4.0) * (xi - 1);
+    double dN2_deta = (1.0 / 4.0) * (-xi - 1);
+    double dN3_deta = (1.0 / 4.0) * (xi + 1);
+    double dN4_deta = (1.0 / 4.0) * (-xi + 1);
 
-    return {dN1_deta, dN2_deta, dN3_deta,
-            dN4_deta, dN5_deta, dN6_deta,
-            dN7_deta, dN8_deta, dN9_deta};
+    return {dN1_deta, dN2_deta, dN3_deta, dN4_deta};
 }
 
-std::vector<double> Q9::shape_functions_d_x(const double xi,
+std::vector<double> Q4::shape_functions_d_x(const double xi,
                                             double const eta) const
 {
     // |dN_x| = | J_11_inv J_12_inv | |dN_xi |
@@ -91,7 +73,7 @@ std::vector<double> Q9::shape_functions_d_x(const double xi,
     return dN_dx;
 }
 
-std::vector<double> Q9::shape_functions_d_y(const double xi,
+std::vector<double> Q4::shape_functions_d_y(const double xi,
                                             double const eta) const
 {
     // |dN_x| = | J_11_inv J_12_inv | |dN_xi |
@@ -111,7 +93,7 @@ std::vector<double> Q9::shape_functions_d_y(const double xi,
     return dN_dy;
 }
 
-std::vector<double> Q9::jacobian_matrix(const double xi, const double eta) const
+std::vector<double> Q4::jacobian_matrix(const double xi, const double eta) const
 {
     std::vector<double> shape_d_xi = shape_functions_d_xi(xi, eta);
     std::vector<double> shape_d_eta = shape_functions_d_eta(xi, eta);
@@ -134,7 +116,7 @@ std::vector<double> Q9::jacobian_matrix(const double xi, const double eta) const
     return {J11, J12, J21, J22};
 }
 
-double Q9::jacobian(const double xi, const double eta) const
+double Q4::jacobian(const double xi, const double eta) const
 {
     double J11 = jacobian_matrix(xi, eta).at(0);
     double J12 = jacobian_matrix(xi, eta).at(1);
@@ -146,7 +128,7 @@ double Q9::jacobian(const double xi, const double eta) const
     return J;
 }
 
-std::vector<double> Q9::jacobian_inverse_matrix(const double xi,
+std::vector<double> Q4::jacobian_inverse_matrix(const double xi,
                                                 const double eta) const
 {
     double J = jacobian(xi, eta);
@@ -164,7 +146,7 @@ std::vector<double> Q9::jacobian_inverse_matrix(const double xi,
     return {J11_inv, J12_inv, J21_inv, J22_inv};
 }
 
-Eigen::MatrixXd Q9::strain_displacement_membrane(const double xi,
+Eigen::MatrixXd Q4::strain_displacement_membrane(const double xi,
                                                  const double eta) const
 {
     Eigen::VectorXd dN_dx, dN_dy;
@@ -184,7 +166,7 @@ Eigen::MatrixXd Q9::strain_displacement_membrane(const double xi,
     return membrane_matrix;
 }
 
-Eigen::MatrixXd Q9::strain_displacement_bending(const double xi,
+Eigen::MatrixXd Q4::strain_displacement_bending(const double xi,
                                                 const double eta) const
 {
     Eigen::VectorXd dN_dx, dN_dy;
@@ -204,7 +186,7 @@ Eigen::MatrixXd Q9::strain_displacement_bending(const double xi,
     return bending_matrix;
 }
 
-Eigen::MatrixXd Q9::strain_displacement_shear(const double xi,
+Eigen::MatrixXd Q4::strain_displacement_shear(const double xi,
                                               const double eta) const
 {
     Eigen::VectorXd N, dN_dx, dN_dy;
@@ -226,7 +208,7 @@ Eigen::MatrixXd Q9::strain_displacement_shear(const double xi,
     return shear_matrix;
 }
 
-Eigen::MatrixXd Q9::strain_displacement_rotation(const double xi,
+Eigen::MatrixXd Q4::strain_displacement_rotation(const double xi,
                                                  const double eta) const
 {
     Eigen::VectorXd dN_dx, dN_dy;
@@ -245,7 +227,7 @@ Eigen::MatrixXd Q9::strain_displacement_rotation(const double xi,
 }
 
 Eigen::MatrixXd
-Q9::strain_displacement_nonlinear_rotation(const double xi,
+Q4::strain_displacement_nonlinear_rotation(const double xi,
                                            const double eta) const
 {
     // Theta =  |dw_dx      0    |
@@ -275,7 +257,7 @@ Q9::strain_displacement_nonlinear_rotation(const double xi,
     return theta_matrix;
 }
 
-Eigen::VectorXd Q9::thermal_force_resultants() const
+Eigen::VectorXd Q4::thermal_force_resultants() const
 {
     std::vector<double> in_plane_thermal =
         get_section().get()->thermal_force_resultants();
@@ -291,7 +273,7 @@ Eigen::VectorXd Q9::thermal_force_resultants() const
     return N_th;
 }
 
-Eigen::VectorXd Q9::thermal_moment_resultants() const
+Eigen::VectorXd Q4::thermal_moment_resultants() const
 {
     std::vector<double> moment_thermal =
         get_section().get()->thermal_moment_resultants();
@@ -307,7 +289,7 @@ Eigen::VectorXd Q9::thermal_moment_resultants() const
     return M_th;
 }
 
-Eigen::VectorXd Q9::in_plane_force_resultants(const double xi,
+Eigen::VectorXd Q4::in_plane_force_resultants(const double xi,
                                               const double eta) const
 {
     // Material stiffness matrices
@@ -383,15 +365,15 @@ Eigen::VectorXd Q9::in_plane_force_resultants(const double xi,
     Eigen::VectorXd N_T = thermal_force_resultants();
 
     // In-plane force resultants
-    Eigen::VectorXd in_plane = A * membrane_strain + B * bending_strain - N_T;
+    // Eigen::VectorXd in_plane = A * membrane_strain + B * bending_strain - N_T;
 
     // >>>
-    // Eigen::VectorXd in_plane = -N_T;
+    Eigen::VectorXd in_plane = -N_T;
 
     return in_plane;
 }
 
-Eigen::MatrixXd Q9::linear_stiffness_matrix() const
+Eigen::MatrixXd Q4::linear_stiffness_matrix() const
 {
     // Material stiffness matrices
 
@@ -448,7 +430,7 @@ Eigen::MatrixXd Q9::linear_stiffness_matrix() const
     As << A44, A45,
         A45, A55;
 
-    constexpr std::size_t n_quadrature_points{3};
+    constexpr std::size_t n_quadrature_points{2};
 
     Quadrature quadrature(n_quadrature_points);
 
@@ -495,7 +477,7 @@ Eigen::MatrixXd Q9::linear_stiffness_matrix() const
     }
 
     // >>>
-    constexpr std::size_t n_quadrature_points_shear{3};
+    constexpr std::size_t n_quadrature_points_shear{1};
 
     Quadrature quadrature_shear(n_quadrature_points_shear);
 
@@ -530,7 +512,7 @@ Eigen::MatrixXd Q9::linear_stiffness_matrix() const
     return K;
 }
 
-Eigen::MatrixXd Q9::nonlinear_stiffness_matrix() const
+Eigen::MatrixXd Q4::nonlinear_stiffness_matrix() const
 {
     // Element's w displacement
     std::vector<double> w_e = get_w_displacement();
@@ -618,7 +600,7 @@ Eigen::MatrixXd Q9::nonlinear_stiffness_matrix() const
     return K_NL;
 }
 
-Eigen::MatrixXd Q9::thermal_stiffness_matrix() const
+Eigen::MatrixXd Q4::thermal_stiffness_matrix() const
 {
     Eigen::VectorXd thermal_forces = thermal_force_resultants();
 
@@ -668,7 +650,7 @@ Eigen::MatrixXd Q9::thermal_stiffness_matrix() const
     return -1.0 * K_dT;
 }
 
-Eigen::MatrixXd Q9::tangent_stiffness_matrix() const
+Eigen::MatrixXd Q4::tangent_stiffness_matrix() const
 {
     // Material stiffness matrices
 
@@ -794,7 +776,7 @@ Eigen::MatrixXd Q9::tangent_stiffness_matrix() const
     return T;
 }
 
-Eigen::VectorXd Q9::internal_force_vector() const
+Eigen::VectorXd Q4::internal_force_vector() const
 {
     Eigen::MatrixXd nonlinear_matrix = nonlinear_stiffness_matrix();
     Eigen::MatrixXd linear_matrix = linear_stiffness_matrix();
@@ -816,7 +798,7 @@ Eigen::VectorXd Q9::internal_force_vector() const
     return internal_force;
 }
 
-Eigen::VectorXd Q9::pressure_load_vector() const
+Eigen::VectorXd Q4::pressure_load_vector() const
 {
     Eigen::VectorXd load_vector =
         Eigen::VectorXd::Zero(dof_per_node_ * n_nodes_);
@@ -864,7 +846,7 @@ Eigen::VectorXd Q9::pressure_load_vector() const
     return load_vector;
 }
 
-Eigen::VectorXd Q9::thermal_load_vector() const
+Eigen::VectorXd Q4::thermal_load_vector() const
 {
     Eigen::VectorXd load_vector =
         Eigen::VectorXd::Zero(dof_per_node_ * n_nodes_);
@@ -908,7 +890,7 @@ Eigen::VectorXd Q9::thermal_load_vector() const
     return load_vector;
 }
 
-Eigen::VectorXd Q9::external_load_vector() const
+Eigen::VectorXd Q4::external_load_vector() const
 {
     return pressure_load_vector() + thermal_load_vector();
 
@@ -916,27 +898,27 @@ Eigen::VectorXd Q9::external_load_vector() const
     // return pressure_load_vector();
 }
 
-std::vector<Triplet> Q9::linear_stiffness_triplet() const
+std::vector<Triplet> Q4::linear_stiffness_triplet() const
 {
     return matrix_to_triplet(linear_stiffness_matrix());
 }
 
-std::vector<Triplet> Q9::nonlinear_stiffness_triplet() const
+std::vector<Triplet> Q4::nonlinear_stiffness_triplet() const
 {
     return matrix_to_triplet(nonlinear_stiffness_matrix());
 }
 
-std::vector<Triplet> Q9::external_load_triplet() const
+std::vector<Triplet> Q4::external_load_triplet() const
 {
     return vector_to_triplet(external_load_vector());
 }
 
-std::vector<Triplet> Q9::internal_load_triplet() const
+std::vector<Triplet> Q4::internal_load_triplet() const
 {
     return vector_to_triplet(internal_force_vector());
 }
 
-std::vector<Triplet> Q9::tangent_stiffness_triplet() const
+std::vector<Triplet> Q4::tangent_stiffness_triplet() const
 {
     return matrix_to_triplet(tangent_stiffness_matrix());
 }

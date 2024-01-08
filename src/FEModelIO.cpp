@@ -80,3 +80,11 @@ std::string get_expansion_type(const std::string &input)
 
     return type;
 }
+
+std::string get_step_analysis_type(const std::string &input)
+{
+    std::vector<std::string> splitted_string = split_string(input, ',');
+    std::string analysis_type = splitted_string.at(1);
+
+    return analysis_type;
+}

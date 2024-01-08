@@ -12,6 +12,7 @@
 #include "Material.hpp"
 #include "Node.hpp"
 #include "Section.hpp"
+#include "Step.hpp"
 #include "Time.hpp"
 #include "Triplet.hpp"
 
@@ -77,7 +78,7 @@ public:
     // defining the model's total number of dofs. If the model has nodes shared
     // by different kinds of elements, how to properly calculate the total
     // number of dofs?
-    const std::size_t n_dof = 5;
+    const std::size_t n_dof{5};
 
     // Inline function
 
@@ -118,6 +119,9 @@ public: // Public for debugging purposes, it must be private
     std::map<std::string, SectionPtr> section_map{};
     // Element tag, Element object
     std::map<std::size_t, ElementPtr> element_map{};
+    // Step tag, Step object
+    std::vector<Step> step_map{};
+
 
     // Functions to read keywords from the input file
 
@@ -137,6 +141,8 @@ public: // Public for debugging purposes, it must be private
     void read_dload();
     // Read Element objects from input
     void read_elements();
+    // Read step
+    void read_step();
 
     // Selectors
 
@@ -164,7 +170,6 @@ public: // Public for debugging purposes, it must be private
     // Returns model's phi_y displacement
     std::vector<double> phi_y_displacements() const;
 
-
     // Returns the total displacements of all nodes and dofs
     std::vector<double> total_displacements() const;
     // Receive a solution displacement vector and distributed it to each node
@@ -177,6 +182,9 @@ public: // Public for debugging purposes, it must be private
     // Convert std::vector<Triplet> to Eigen::SparseMatrix<double> matrix
     Eigen::SparseMatrix<double>
     triplet_to_sparse_matrix(const std::vector<Triplet> &triplet) const;
+
+    // Solvers
+
     // CG solver
     std::vector<double> solver_cg(const Eigen::SparseMatrix<double> &A,
                                   const Eigen::SparseMatrix<double> &b) const;
@@ -184,13 +192,22 @@ public: // Public for debugging purposes, it must be private
     std::vector<double> solver_lu(const Eigen::SparseMatrix<double> &A,
                                   const Eigen::SparseMatrix<double> &b) const;
 
-    // Solvers
+    // QR solver
+    std::vector<double> solver_qr(const Eigen::SparseMatrix<double> &A,
+                                  const Eigen::SparseMatrix<double> &b) const;
+    // BiCGSTAB solver
+    std::vector<double> solver_bicgstab(const Eigen::SparseMatrix<double> &A,
+                                        const Eigen::SparseMatrix<double> &b) const;
+
+    // Solve Kq = F
 
     // Linear solver
     void linear_solver() const;
-    // Nonlinear solvers
+    // Nonlinear solver
     // - Newton-Raphson
     void nonlinear_solver_newton_raphson() const;
+    void nonlinear_solver_newton_raphson(const std::size_t n_iterations) const;
+    void nonlinear_solver_arc_length() const;
 
     // >>>
     void wait_on_enter() const

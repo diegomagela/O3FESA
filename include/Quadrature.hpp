@@ -30,7 +30,7 @@ class Quadrature
 {
 public:
     Quadrature(const std::size_t n_points) : points_(point_weight_vec.at(n_points - 1).points),
-                                            weights_(point_weight_vec.at(n_points - 1).weights){};
+                                             weights_(point_weight_vec.at(n_points - 1).weights){};
 
     // Selectors
 

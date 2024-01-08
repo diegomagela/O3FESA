@@ -16,10 +16,10 @@ public:
     Section(const std::vector<double> thickness,
             const std::vector<std::size_t> nip,
             const std::vector<MaterialPtr> material,
-            const std::vector<int> orientation) : thickness_(thickness),
-                                                  nip_(nip),
-                                                  material_(material),
-                                                  orientation_(orientation){};
+            const std::vector<double> orientation) : thickness_(thickness),
+                                                     nip_(nip),
+                                                     material_(material),
+                                                     orientation_(orientation){};
 
     // The rule of five
     Section() = default;
@@ -45,6 +45,10 @@ public:
     std::vector<double> thermal_force_resultants() const;
     std::vector<double> thermal_moment_resultants() const;
 
+    // >>>
+    std::vector<double> thermal_force_resultants_linear() const;
+    std::vector<double> thermal_moment_resultants_linear() const;
+
     // Return if the temperature is greater than 0
     bool has_temperature() const;
 
@@ -59,8 +63,8 @@ private:
     std::vector<double> thickness_{};     // Thickness of each layer
     std::vector<std::size_t> nip_{};      // Number of integration points
     std::vector<MaterialPtr> material_{}; // List of materials
-    std::vector<int> orientation_{};      // List of angle of each layer
-    double temperature_{};                 // Temperature gradient
+    std::vector<double> orientation_{};   // List of angle of each layer
+    double temperature_{};                // Temperature gradient
 };
 
 #endif // SECTION

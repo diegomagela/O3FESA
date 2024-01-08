@@ -185,7 +185,6 @@ std::vector<double> Element::get_displacements() const
     std::vector<double> phi_x_e = get_phi_x_displacement();
     std::vector<double> phi_y_e = get_phi_y_displacement();
 
-    // >>>
     displacements.insert(displacements.end(),
                          u_e.begin(),
                          u_e.end());
@@ -316,8 +315,11 @@ Element::matrix_to_triplet(const Eigen::MatrixXd &matrix) const
             if (check_boundary_dof_matrix(row_global, col_global))
             {
                 if (row_global == col_global)
-                    value = 1;
-                // value = matrix.mean();
+                {
+                    // >>>
+                    // value = 1;
+                    value = 1000 * matrix.mean();
+                }
 
                 else
                     value = 0;
